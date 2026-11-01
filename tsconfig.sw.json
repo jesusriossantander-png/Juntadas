@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2021",
+      "WebWorker"
+    ],
+    "types": [
+      "vite-plugin-pwa/client"
+    ]
+  },
+  "include": [
+    "src/sw.ts"
+  ],
+  "exclude": []
+}

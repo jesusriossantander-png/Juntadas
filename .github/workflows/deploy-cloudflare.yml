@@ -1,0 +1,44 @@
+# Publica en Cloudflare Pages (gratis) si están cargados los secretos:
+#   CLOUDFLARE_API_TOKEN (permiso "Cloudflare Pages: Edit") y CLOUDFLARE_ACCOUNT_ID.
+# Si no están, el workflow se saltea sin fallar.
+name: Deploy Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    env:
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - name: Sin credenciales de Cloudflare
+        if: env.HAS_CF != 'true'
+        run: echo "CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID no configurados; se omite el despliegue."
+      - uses: actions/checkout@v4
+        if: env.HAS_CF == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_CF == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: env.HAS_CF == 'true'
+        run: npm ci && npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_PUBLIC_APP_URL: https://la-juntada.pages.dev/
+      - if: env.HAS_CF == 'true'
+        name: Crear el proyecto si no existe
+        run: npx wrangler@3 pages project create la-juntada --production-branch=main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - if: env.HAS_CF == 'true'
+        run: npx wrangler@3 pages deploy dist --project-name=la-juntada --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

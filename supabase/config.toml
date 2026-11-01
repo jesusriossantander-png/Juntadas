@@ -1,0 +1,9 @@
+# Configuración mínima para la CLI de Supabase (supabase link / db push / functions deploy).
+project_id = "la-juntada"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:4173"]
+
+[functions.send-reminders]
+verify_jwt = false   # se protege con CRON_SECRET propio

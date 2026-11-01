@@ -39,6 +39,16 @@ export default defineConfig({
       devOptions: { enabled: false }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          supabase: ['@supabase/supabase-js']
+        }
+      }
+    }
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts']

@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tipos
+        run: npm run typecheck
+      - name: Pruebas unitarias (cálculos financieros, votaciones, recordatorios)
+        run: npm test
+      - name: Pruebas de base de datos (migraciones + RLS + RPC en PostgreSQL)
+        run: npm run test:db
+      - name: Build de producción
+        run: npm run build

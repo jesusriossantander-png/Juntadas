@@ -75,7 +75,7 @@ export function participantName(p: Participant | undefined, profiles: Record<str
 
 export function profileName(p: Profile | undefined): string {
   if (!p) return 'Ex integrante';
-  return p.alias?.trim() || p.display_name?.trim() || 'Sin nombre';
+  return p.display_name?.trim() || p.alias?.trim() || 'Sin nombre';
 }
 
 export interface GatheringTotals {
