@@ -9,7 +9,9 @@ export function whatsappUrl(text: string): string {
 
 export function appUrl(path: string): string {
   const configured = import.meta.env?.VITE_PUBLIC_APP_URL as string | undefined;
-  const base = (configured || (typeof location !== 'undefined' ? location.origin + location.pathname : '')).replace(/\/$/, '');
+  // Se conserva la barra final (ej. https://usuario.github.io/Juntadas/) para que el enlace abra directo.
+  let base = configured || (typeof location !== 'undefined' ? location.origin + location.pathname : '');
+  if (!base.endsWith('/')) base += '/';
   return `${base}#${path.startsWith('/') ? path : '/' + path}`;
 }
 
