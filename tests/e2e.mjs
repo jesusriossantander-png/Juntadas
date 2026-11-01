@@ -105,6 +105,26 @@ await step('Borrar una juntada', async () => {
   await p.getByRole('dialog').getByRole('button', { name: 'Borrar' }).click();
   await see(p, 'Todavía no hay juntadas');
 });
+await step('El que no toma no paga el alcohol y el que estuvo un rato paga menos', async () => {
+  await p.getByRole('button', { name: 'Calcular' }).click();
+  for (const n of ['Jesús', 'Pablo', 'Nico']) await p.getByRole('button', { name: n, exact: false }).first().click();
+  await p.getByLabel('Cuánto puso Jesús').fill('60.000');
+  await p.getByLabel('Cuánto puso Pablo').fill('20.000');
+  await p.getByRole('switch', { name: /Separar el alcohol/ }).click();
+  await p.getByLabel('Alcohol que compró Pablo').fill('20.000');
+  await p.getByLabel('Nico toma alcohol').click();
+  await see(p, 'No toma');
+  // comida 60.000 / 3 = 20.000 · alcohol 20.000 entre Jesús y Pablo
+  const nico = await p.getByLabel('Cuánto puso Nico').locator('xpath=ancestor::div[contains(@class,"card")]').first().innerText();
+  if (!nico.includes('Le toca $ 20.000')) throw new Error('Nico: ' + nico);
+  await p.getByLabel('Cuánto estuvo Nico').selectOption('50');
+  // comida 60.000 en 100+100+50 → Nico 12.000
+  await see(p, 'Le toca $ 12.000');
+  const href = await p.getByRole('link', { name: /Mandar cuentas por WhatsApp/ }).getAttribute('href');
+  const t = decodeURIComponent(href.split('text=')[1]);
+  if (!t.includes('No toman alcohol: Nico') || !t.includes('Nico (50%)')) throw new Error(t);
+  await p.screenshot({ path: `${SHOTS}/alcohol.png`, fullPage: true });
+});
 await step('Funciona sin internet (instalable)', async () => {
   await p.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration())?.active, null, { timeout: 8000 });
   await p.reload();

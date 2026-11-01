@@ -3,13 +3,13 @@ import {
   ArrowRight, BellRing, Calculator, Check, ChevronDown, Download, History, Pencil, Plus, Save, Settings, Share2, Trash2, Upload, UserPlus, X, RotateCcw
 } from 'lucide-react';
 import {
-  calcular, cargar, diasSinJuntarse, fechaLocal, guardar, sumarAmigos, tocaJuntarse, validar, type Datos, type Juntada, type Persona
+  calcular, cargar, pct, tomaAlcohol, diasSinJuntarse, fechaLocal, guardar, sumarAmigos, tocaJuntarse, validar, type Datos, type Juntada, type Persona
 } from './lib/juntada';
 import { getThemePref, setThemePref, type ThemePref } from './lib/theme';
 import { Confirm, Logo, MoneyInput, Toasts, fechaLarga, pesos, toast, whatsapp } from './ui';
 
 type Tab = 'calcular' | 'registro' | 'ajustes';
-type Borrador = { id?: string; fecha: string; titulo: string; personas: Persona[] };
+type Borrador = { id?: string; fecha: string; titulo: string; personas: Persona[]; separarAlcohol?: boolean };
 
 const BORRADOR_KEY = 'la-juntada:borrador:v1';
 const nuevaPersona = (nombre = ''): Persona => ({ id: crypto.randomUUID(), nombre, puso: 0, participa: true });
@@ -44,7 +44,7 @@ export default function App() {
       <main className="main fade-in" key={tab}>
         {aviso != null && tab !== 'ajustes' && <Aviso dias={aviso} />}
         {tab === 'calcular' && <Calculadora datos={datos} setDatos={setDatos} b={borrador} setB={setBorrador} irARegistro={() => setTab('registro')} />}
-        {tab === 'registro' && <Registro datos={datos} setDatos={setDatos} editar={(j) => { setBorrador({ id: j.id, fecha: j.fecha, titulo: j.titulo, personas: j.personas }); setTab('calcular'); }} />}
+        {tab === 'registro' && <Registro datos={datos} setDatos={setDatos} editar={(j) => { setBorrador({ id: j.id, fecha: j.fecha, titulo: j.titulo, personas: j.personas, separarAlcohol: j.separarAlcohol }); setTab('calcular'); }} />}
         {tab === 'ajustes' && <Ajustes datos={datos} setDatos={setDatos} />}
       </main>
       <nav className="bottomnav" aria-label="Secciones">
@@ -83,7 +83,8 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
 }) {
   const [error, setError] = useState<string | null>(null);
   const [limpiar, setLimpiar] = useState<string | null>(null);
-  const r = useMemo(() => calcular(b.personas), [b.personas]);
+  const sep = !!b.separarAlcohol;
+  const r = useMemo(() => calcular(b.personas, sep), [b.personas, sep]);
   const nombre = (id: string) => b.personas.find((p) => p.id === id)?.nombre.trim() || 'Sin nombre';
   const enLista = new Set(b.personas.map((p) => p.nombre.trim().toLowerCase()));
   const sugeridos = datos.amigos.filter((a) => !enLista.has(a.toLowerCase()));
@@ -98,7 +99,7 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
     if (r.total <= 0) return setError('Nadie puso plata todavía.');
     if (!personas.some((p) => p.participa)) return setError('Marcá quiénes entran en la división.');
     const j: Juntada = {
-      id: b.id ?? crypto.randomUUID(), fecha: b.fecha || fechaLocal(), titulo: b.titulo.trim(),
+      id: b.id ?? crypto.randomUUID(), fecha: b.fecha || fechaLocal(), titulo: b.titulo.trim(), separarAlcohol: sep,
       personas: personas.map((p) => ({ ...p, nombre: p.nombre.trim() })), saldada: datos.juntadas.find((x) => x.id === b.id)?.saldada ?? false,
       creada: datos.juntadas.find((x) => x.id === b.id)?.creada ?? new Date().toISOString()
     };
@@ -124,6 +125,15 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
           <input className="input" type="date" value={b.fecha} max={fechaLocal()} onChange={(e) => setB({ ...b, fecha: e.target.value })} /></label>
       </div>
 
+      <button className="card tight row-between" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
+        role="switch" aria-checked={sep} onClick={() => setB({ ...b, separarAlcohol: !sep })}>
+        <span>
+          <span className="bold">🍺 Separar el alcohol</span>
+          <span className="faint small" style={{ display: 'block' }}>Lo que se gastó en alcohol lo pagan solo los que toman.</span>
+        </span>
+        <span className={`switch ${sep ? 'on' : ''}`} aria-hidden />
+      </button>
+
       <section className="stack">
         <div className="section-title"><h2>Personas ({b.personas.length})</h2></div>
         {b.personas.map((p, i) => (
@@ -140,6 +150,40 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
                 {p.participa ? <><Check /> Entra</> : 'No entra'}
               </button>
             </div>
+            {sep && (
+              <div className="row">
+                <div className="grow">
+                  <span className="xsmall faint">De eso, en alcohol</span>
+                  <MoneyInput cents={p.alcohol ?? 0} onChange={(c) => upd(p.id, { alcohol: c })} ariaLabel={`Alcohol que compró ${p.nombre || `la persona ${i + 1}`}`} />
+                </div>
+                <button className={`chip ${tomaAlcohol(p) ? 'on' : ''}`} style={{ minHeight: 48, borderRadius: 13, alignSelf: 'flex-end' }} aria-pressed={tomaAlcohol(p)}
+                  aria-label={`${p.nombre || `Persona ${i + 1}`} toma alcohol`} onClick={() => upd(p.id, { toma: !tomaAlcohol(p) })}>
+                  {tomaAlcohol(p) ? '🍺 Toma' : '🚫 No toma'}
+                </button>
+              </div>
+            )}
+            {sep && (p.alcohol ?? 0) > p.puso && <span className="error-text">El alcohol no puede ser más de lo que puso.</span>}
+            {p.participa && (
+              <div className="row">
+                <span className="small faint" style={{ flexShrink: 0 }}>Estuvo</span>
+                <select className="select input-sm grow" aria-label={`Cuánto estuvo ${p.nombre || `la persona ${i + 1}`}`}
+                  value={[100, 75, 50, 25].includes(pct(p)) ? String(pct(p)) : 'otro'}
+                  onChange={(e) => upd(p.id, { porcentaje: e.target.value === 'otro' ? 80 : Number(e.target.value) })}>
+                  <option value="100">Toda la juntada (100%)</option>
+                  <option value="75">Casi toda (75%)</option>
+                  <option value="50">La mitad (50%)</option>
+                  <option value="25">Un rato (25%)</option>
+                  <option value="otro">Otro porcentaje…</option>
+                </select>
+                {![100, 75, 50, 25].includes(pct(p)) && (
+                  <div className="input-affix" style={{ width: 86 }}>
+                    <input className="input input-sm num" inputMode="numeric" value={pct(p)} aria-label={`Porcentaje de ${p.nombre || `la persona ${i + 1}`}`}
+                      onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 3)); upd(p.id, { porcentaje: Math.min(100, Math.max(1, n || 1)) }); }} />
+                    <span>%</span>
+                  </div>
+                )}
+              </div>
+            )}
             {r.total > 0 && p.nombre.trim() && (
               <div className="xsmall faint">
                 {!p.participa ? 'No entra en la división' : <>Le toca {pesos(r.parte[p.id])} · </>}
@@ -160,9 +204,10 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
           </div>
         )}
         <button className="btn" onClick={() => setB({ ...b, personas: [...b.personas, nuevaPersona()] })}><UserPlus /> Agregar persona</button>
-        <p className="hint">Marcá “No entra” si alguien compró pero no participa (por ejemplo, no vino): recupera lo que puso y no paga parte.</p>
+        <p className="hint">“No entra”: compró pero no participa (no vino), recupera lo que puso. “Estuvo”: si llegó muy tarde o estuvo un rato, paga en proporción.</p>
       </section>
 
+      {r.avisos.map((a) => <p key={a} className="small" style={{ color: 'var(--amber)' }}>⚠️ {a}</p>)}
       <Resultado r={r} nombre={nombre} titulo={b.titulo} fecha={b.fecha} personas={b.personas} />
 
       {error && <p className="error-text" role="alert">{error}</p>}
@@ -177,11 +222,18 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
 
 function textoCuentas(r: ReturnType<typeof calcular>, nombre: (id: string) => string, titulo: string, fecha: string, personas: Persona[]) {
   const pusieron = personas.filter((p) => p.puso > 0).map((p) => `${nombre(p.id)} ${pesos(p.puso)}`).join(', ');
-  const exacto = Object.values(r.parte).filter((x) => x > 0).every((x) => x === r.porCabeza);
+  const part = personas.filter((p) => p.participa);
+  const noToman = r.alcohol > 0 ? part.filter((p) => !tomaAlcohol(p)).map((p) => nombre(p.id)) : [];
+  const parciales = part.filter((p) => pct(p) < 100).map((p) => `${nombre(p.id)} (${pct(p)}%)`);
   return [
     `🔥 ${titulo.trim() || 'Juntada'} · ${fechaLarga(fecha)}`,
-    `Total: ${pesos(r.total)} · ${r.participantes} personas · ${exacto ? '' : '≈'}${pesos(r.porCabeza)} c/u`,
+    r.porCabeza != null
+      ? `Total: ${pesos(r.total)} · ${r.participantes} personas · ${pesos(r.porCabeza)} c/u`
+      : `Total: ${pesos(r.total)}${r.alcohol ? ` (alcohol ${pesos(r.alcohol)})` : ''} · ${r.participantes} personas`,
     `Pusieron: ${pusieron}`,
+    ...(noToman.length ? [`No toman alcohol: ${noToman.join(', ')}`] : []),
+    ...(parciales.length ? [`Estuvieron un rato: ${parciales.join(', ')}`] : []),
+    ...(r.porCabeza == null ? [`A cada uno le toca: ${part.map((p) => `${nombre(p.id)} ${pesos(r.parte[p.id])}`).join(', ')}`] : []),
     r.transferencias.length ? 'Cuentas:' : '¡Todos a mano! 🎉',
     ...r.transferencias.map((t) => `• ${nombre(t.from)} le pasa ${pesos(t.amountCents)} a ${nombre(t.to)}`)
   ].join('\n');
@@ -191,14 +243,15 @@ function Resultado({ r, nombre, titulo, fecha, personas }: { r: ReturnType<typeo
   if (r.total <= 0) {
     return <div className="card center muted small">Cuando cargues lo que puso cada uno, acá aparece cómo quedan las cuentas.</div>;
   }
-  const exacto = Object.values(r.parte).filter((x) => x > 0).every((x) => x === r.porCabeza);
   return (
     <section className="card hero stack" aria-label="Resultado">
       <div className="kpi-hero">
         <div>
           <div className="small muted bold">Total gastado</div>
           <div className="amount-xl">{pesos(r.total)}</div>
-          <div className="muted small">{r.participantes ? `${exacto ? '' : '≈ '}${pesos(r.porCabeza)} cada uno · ${r.participantes} personas` : 'Nadie entra en la división'}</div>
+          <div className="muted small">{!r.participantes ? 'Nadie entra en la división'
+            : r.porCabeza != null ? `${pesos(r.porCabeza)} cada uno · ${r.participantes} personas`
+            : `${r.participantes} personas · según lo que tomó y el tiempo que estuvo cada uno`}</div>
         </div>
       </div>
       <div className="stack" style={{ gap: 8, position: 'relative', zIndex: 1 }}>
@@ -222,8 +275,8 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
   const [abierta, setAbierta] = useState<string | null>(datos.juntadas[0]?.id ?? null);
   const [borrar, setBorrar] = useState<Juntada | null>(null);
   const dias = diasSinJuntarse(datos.juntadas);
-  const total = datos.juntadas.reduce((a, j) => a + calcular(j.personas).total, 0);
-  const pendientes = datos.juntadas.filter((j) => !j.saldada && calcular(j.personas).transferencias.length).length;
+  const total = datos.juntadas.reduce((a, j) => a + calcular(j.personas, j.separarAlcohol).total, 0);
+  const pendientes = datos.juntadas.filter((j) => !j.saldada && calcular(j.personas, j.separarAlcohol).transferencias.length).length;
 
   if (!datos.juntadas.length) {
     return (
@@ -245,7 +298,7 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
       <p className="faint small center">Total gastado en todas: {pesos(total)}</p>
       <div className="stack">
         {datos.juntadas.map((j) => {
-          const r = calcular(j.personas);
+          const r = calcular(j.personas, j.separarAlcohol);
           const nombre = (id: string) => j.personas.find((p) => p.id === id)?.nombre ?? '';
           const open = abierta === j.id;
           const set = (patch: Partial<Juntada>) => setDatos({ ...datos, juntadas: datos.juntadas.map((x) => (x.id === j.id ? { ...x, ...patch } : x)) });
@@ -267,7 +320,7 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
                   <div className="list" style={{ borderTop: '1px solid var(--border)' }}>
                     {j.personas.map((p) => (
                       <div key={p.id} className="row-between small" style={{ padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
-                        <span>{p.nombre}{!p.participa && <span className="faint"> (no entra)</span>}</span>
+                        <span>{p.nombre}{!p.participa && <span className="faint"> (no entra)</span>}{p.participa && pct(p) < 100 && <span className="faint"> ({pct(p)}%)</span>}{p.participa && j.separarAlcohol && !tomaAlcohol(p) && <span className="faint"> · no toma</span>}</span>
                         <span className="num">puso {pesos(p.puso)} · <span className={r.saldo[p.id] > 0 ? 'pos' : r.saldo[p.id] < 0 ? 'neg' : 'faint'}>{r.saldo[p.id] > 0 ? '+' : ''}{pesos(r.saldo[p.id])}</span></span>
                       </div>
                     ))}

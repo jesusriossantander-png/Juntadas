@@ -8,6 +8,7 @@ describe('calculadora', () => {
     const r = calcular([p('Jesús', 50000), p('Pablo', 30000), p('Ricardo', 20000), p('Nico', 0)]);
     expect(r.total).toBe(10_000_000);
     expect(r.porCabeza).toBe(2_500_000);
+    expect(r.avisos).toEqual([]);
     expect(r.saldo).toEqual({ Jesús: 2_500_000, Pablo: 500_000, Ricardo: -500_000, Nico: -2_500_000 });
     expect(r.transferencias).toEqual([
       { from: 'Nico', to: 'Jesús', amountCents: 2_500_000 },
@@ -40,6 +41,53 @@ describe('calculadora', () => {
     expect(calcular([p('a', 0), p('b', 0)]).transferencias).toEqual([]);
     expect(calcular([p('a', 100, false)]).transferencias).toEqual([]);
     expect(calcular([]).total).toBe(0);
+  });
+});
+
+describe('alcohol y tiempo que estuvo', () => {
+  const q = (nombre: string, pesos: number, extra: Partial<Persona> = {}): Persona => ({ ...p(nombre, pesos), ...extra });
+
+  it('el que no toma no paga el alcohol', () => {
+    // Asado $60.000 (Jesús) + cerveza $20.000 (Pablo). Nico no toma.
+    const r = calcular([q('Jesús', 60000), q('Pablo', 20000, { alcohol: 2_000_000 }), q('Nico', 0, { toma: false })], true);
+    expect(r.alcohol).toBe(2_000_000);
+    expect(r.parte).toEqual({ Jesús: 3_000_000, Pablo: 3_000_000, Nico: 2_000_000 }); // 20.000 de comida c/u + 10.000 de alcohol los que toman
+    expect(r.porCabeza).toBeNull();
+    expect(Object.values(r.saldo).reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it('si no se separa el alcohol, todos pagan lo mismo aunque esté cargado', () => {
+    const r = calcular([q('Jesús', 60000), q('Pablo', 20000, { alcohol: 2_000_000 }), q('Nico', 0, { toma: false })], false);
+    expect(r.porCabeza).toBe(Math.floor(8_000_000 / 3));
+    expect(r.alcohol).toBe(0);
+  });
+
+  it('el que estuvo un rato paga en proporción', () => {
+    // $100.000 entre 3 completos y uno que estuvo la mitad: 100+100+100+50 = 350 partes
+    const r = calcular([q('A', 100000), q('B', 0), q('C', 0), q('D', 0, { porcentaje: 50 })]);
+    expect(r.parte.D).toBe(1_428_571);
+    expect(r.parte.B).toBe(2_857_143);
+    expect(Object.values(r.parte).reduce((a, b) => a + b, 0)).toBe(10_000_000);
+  });
+
+  it('combina las dos cosas: llegó tarde y no toma', () => {
+    const r = calcular([q('A', 30000, { alcohol: 1_000_000 }), q('B', 0), q('C', 0, { porcentaje: 25, toma: false })], true);
+    // comida 20.000 en 100+100+25 · alcohol 10.000 en 100+100
+    expect(r.parte.C).toBe(222_222);
+    expect(r.parte.A + r.parte.B + r.parte.C).toBe(3_000_000);
+    expect(r.parte.A).toBe(r.parte.B);
+  });
+
+  it('alcohol cargado pero nadie toma: se reparte entre todos y avisa', () => {
+    const r = calcular([q('A', 1000, { alcohol: 100_000, toma: false }), q('B', 0, { toma: false })], true);
+    expect(r.avisos).toHaveLength(1);
+    expect(r.parte).toEqual({ A: 50_000, B: 50_000 });
+  });
+
+  it('el alcohol nunca supera lo que puso la persona', () => {
+    const r = calcular([q('A', 100, { alcohol: 999_999 }), q('B', 0, { toma: false })], true);
+    expect(r.alcohol).toBe(10_000);
+    expect(r.parte).toEqual({ A: 10_000, B: 0 });
   });
 });
 

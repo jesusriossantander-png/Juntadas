@@ -1,8 +1,10 @@
 /**
  * La Juntada — modelo y cálculo.
- * Una juntada es una lista de personas con lo que puso cada una.
- * El total se divide en partes iguales entre quienes participan (al centavo exacto)
- * y se proponen las transferencias mínimas para quedar a mano.
+ * Cada persona carga lo que puso. Se reparte entre quienes participan:
+ *  - según el tiempo que estuvo (porcentaje: 100% todo, 50% la mitad, etc.);
+ *  - si se separa el alcohol, lo que se gastó en alcohol lo pagan solo los que toman
+ *    (también proporcional a su porcentaje) y el resto, todos.
+ * Todo al centavo exacto, con las transferencias mínimas para quedar a mano.
  */
 import { allocateByWeights } from './money';
 import { simplifyDebts, type Transfer } from './balances';
@@ -10,8 +12,14 @@ import { simplifyDebts, type Transfer } from './balances';
 export interface Persona {
   id: string;
   nombre: string;
-  /** Lo que puso, en centavos */
+  /** Lo que puso en total, en centavos */
   puso: number;
+  /** De lo que puso, cuánto fue alcohol (centavos). Solo cuenta si la juntada separa el alcohol. */
+  alcohol?: number;
+  /** Si toma alcohol (por defecto sí) */
+  toma?: boolean;
+  /** Qué parte de la juntada estuvo: 100 = toda, 50 = la mitad... (por defecto 100) */
+  porcentaje?: number;
   /** Si entra en la división (alguien puede haber comprado y no venir) */
   participa: boolean;
 }
@@ -21,42 +29,71 @@ export interface Juntada {
   fecha: string; // AAAA-MM-DD
   titulo: string;
   personas: Persona[];
+  /** Si el alcohol lo pagan solo los que toman */
+  separarAlcohol?: boolean;
   saldada: boolean;
   creada: string;
 }
 
 export interface Resultado {
   total: number;
+  /** Total gastado en alcohol (0 si no se separa) */
+  alcohol: number;
   participantes: number;
   /** Lo que le toca poner a cada persona (centavos), por id */
   parte: Record<string, number>;
   /** Saldo: positivo = le deben, negativo = debe */
   saldo: Record<string, number>;
   transferencias: Transfer[];
-  /** Importe "por cabeza" de referencia (puede variar en 1 centavo entre personas) */
-  porCabeza: number;
+  /** Si todos pagan lo mismo, ese importe; si no, null */
+  porCabeza: number | null;
+  /** Advertencias para mostrar (ej. alcohol cargado pero nadie toma) */
+  avisos: string[];
 }
 
-export function calcular(personas: Persona[]): Resultado {
+export const pct = (p: Persona) => Math.min(100, Math.max(1, Math.round(p.porcentaje ?? 100)));
+export const tomaAlcohol = (p: Persona) => p.toma !== false;
+/** Alcohol que puso la persona, nunca más que lo que puso en total. */
+export const alcoholDe = (p: Persona) => Math.min(Math.max(0, p.alcohol ?? 0), p.puso);
+
+function repartir(monto: number, personas: Persona[], peso: (p: Persona) => number, parte: Record<string, number>) {
+  const pesos = personas.map((p) => BigInt(peso(p)));
+  if (monto <= 0 || pesos.every((w) => w === 0n)) return false;
+  allocateByWeights(monto, pesos).forEach((m, i) => (parte[personas[i].id] += m));
+  return true;
+}
+
+export function calcular(personas: Persona[], separarAlcohol = false): Resultado {
+  const avisos: string[] = [];
   const total = personas.reduce((a, p) => a + p.puso, 0);
   const part = personas.filter((p) => p.participa);
   const parte: Record<string, number> = {};
   personas.forEach((p) => (parte[p.id] = 0));
-  if (total > 0 && part.length > 0) {
-    const montos = allocateByWeights(total, part.map(() => 1n));
-    part.forEach((p, i) => (parte[p.id] = montos[i]));
+
+  let alcohol = separarAlcohol ? personas.reduce((a, p) => a + alcoholDe(p), 0) : 0;
+  if (alcohol > 0 && !part.some(tomaAlcohol)) {
+    avisos.push('Hay alcohol cargado pero nadie toma: se reparte entre todos.');
+    alcohol = 0;
   }
+  if (part.length) {
+    repartir(total - alcohol, part, pct, parte);
+    repartir(alcohol, part, (p) => (tomaAlcohol(p) ? pct(p) : 0), parte);
+  }
+
   const saldo: Record<string, number> = {};
   personas.forEach((p) => (saldo[p.id] = p.puso - parte[p.id]));
-  // Si nadie participa no hay nada que repartir.
   const transferencias = part.length ? simplifyDebts(personas.map((p) => ({ participantId: p.id, net: saldo[p.id] }))) : [];
+  const partes = part.map((p) => parte[p.id]);
+  const iguales = partes.length > 0 && Math.max(...partes) - Math.min(...partes) <= 1;
   return {
     total,
+    alcohol,
     participantes: part.length,
     parte,
     saldo,
     transferencias,
-    porCabeza: part.length ? Math.floor(total / part.length) : 0
+    porCabeza: iguales ? Math.floor(total / part.length) : null,
+    avisos
   };
 }
 
@@ -99,11 +136,17 @@ export function validar(x: unknown): Datos {
           id: j.id,
           fecha: j.fecha,
           titulo: String(j.titulo ?? '').slice(0, 80),
+          separarAlcohol: !!j.separarAlcohol,
           saldada: !!j.saldada,
           creada: String(j.creada ?? new Date().toISOString()),
           personas: j.personas
             .filter((p) => p && typeof p.nombre === 'string' && Number.isSafeInteger(p.puso) && p.puso >= 0)
-            .map((p) => ({ id: String(p.id ?? crypto.randomUUID()), nombre: p.nombre.slice(0, 40), puso: p.puso, participa: p.participa !== false }))
+            .map((p) => ({
+              id: String(p.id ?? crypto.randomUUID()), nombre: p.nombre.slice(0, 40), puso: p.puso, participa: p.participa !== false,
+              alcohol: Number.isSafeInteger(p.alcohol) && p.alcohol! > 0 ? Math.min(p.alcohol!, p.puso) : 0,
+              toma: p.toma !== false,
+              porcentaje: Number.isFinite(p.porcentaje) ? Math.min(100, Math.max(1, Math.round(p.porcentaje!))) : 100
+            }))
         }))
     : [];
   const amigos = Array.isArray(o.amigos) ? o.amigos.filter((a) => typeof a === 'string').map((a) => a.slice(0, 40)) : [];
