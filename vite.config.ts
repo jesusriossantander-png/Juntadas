@@ -11,8 +11,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
-      injectRegister: false,
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
@@ -21,7 +21,7 @@ export default defineConfig({
       manifest: {
         name: 'La Juntada',
         short_name: 'La Juntada',
-        description: 'Organizá juntadas, gastos compartidos y quién le debe a quién.',
+        description: 'Calculadora para dividir los gastos de la juntada y registro de cuándo se juntaron.',
         lang: 'es-AR',
         start_url: '.',
         scope: '.',
@@ -42,10 +42,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js']
-        }
+        manualChunks: { react: ['react', 'react-dom'] }
       }
     }
   },

@@ -4,7 +4,9 @@
  *   net = pagado − consumido + enviado − recibido      (>0 le deben · <0 debe)
  * Solo los pagos CONFIRMADOS mueven el saldo; los informados se muestran aparte.
  */
-import type { Expense, Settlement } from './types';
+export interface Payment { participant_id: string; amount_cents: number }
+export interface ExpenseLike { payers: Payment[]; splits: Payment[] }
+export interface SettlementLike { from_participant: string; to_participant: string; amount_cents: number; status: 'reported' | 'confirmed' | 'rejected' }
 
 export interface Balance {
   participantId: string;
@@ -30,8 +32,8 @@ export interface Transfer {
 
 export function computeBalances(
   participantIds: string[],
-  expenses: Pick<Expense, 'payers' | 'splits'>[],
-  settlements: Pick<Settlement, 'from_participant' | 'to_participant' | 'amount_cents' | 'status'>[]
+  expenses: ExpenseLike[],
+  settlements: SettlementLike[]
 ): Balance[] {
   const map = new Map<string, Balance>();
   const get = (id: string) => {

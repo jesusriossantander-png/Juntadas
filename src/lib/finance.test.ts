@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { allocateByWeights, computeSplit, formatMoney, parseMoney, SplitError } from './money';
 import { computeBalances, debtStatus, gatheringDebtStatus, simplifyDebts } from './balances';
-import type { Expense, Settlement } from './types';
+import type { ExpenseLike, SettlementLike } from './balances';
 
-const exp = (payers: [string, number][], splits: [string, number][]): Pick<Expense, 'payers' | 'splits'> => ({
+const exp = (payers: [string, number][], splits: [string, number][]): ExpenseLike => ({
   payers: payers.map(([participant_id, amount_cents]) => ({ expense_id: 'e', participant_id, amount_cents })),
   splits: splits.map(([participant_id, amount_cents]) => ({ expense_id: 'e', participant_id, amount_cents, share: 1 }))
 });
-const set = (from: string, to: string, amount_cents: number, status: Settlement['status'] = 'confirmed') => ({
+const set = (from: string, to: string, amount_cents: number, status: SettlementLike['status'] = 'confirmed') => ({
   from_participant: from, to_participant: to, amount_cents, status
 });
 const equal = (total: number, ids: string[]) => computeSplit(total, 'equal', ids.map((participantId) => ({ participantId, value: 1 })));

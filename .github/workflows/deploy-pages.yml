@@ -1,8 +1,5 @@
 # Publica la app en GitHub Pages (gratis) en cada push a main.
 # Una sola vez: Settings → Pages → Build and deployment → Source: "GitHub Actions".
-# Para conectar Supabase, cargá en Settings → Secrets and variables → Actions:
-#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (públicas) y opcional VITE_VAPID_PUBLIC_KEY.
-# Sin esos secretos, la app se publica en modo DEMO.
 name: Deploy GitHub Pages
 
 on:
@@ -33,10 +30,6 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
-          VITE_PUBLIC_APP_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
       - uses: actions/configure-pages@v5
         with:
           enablement: true

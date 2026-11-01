@@ -3,33 +3,28 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "La Juntada \u2014 organiz\u00e1 juntadas, gastos compartidos y cuentas entre amigos.",
+  "description": "La Juntada \u2014 divid\u00ed los gastos de la juntada y llev\u00e1 el registro.",
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json",
+    "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:db": "bash supabase/tests/run-local.sh",
-    "icons": "node scripts/generate-icons.mjs",
-    "test:e2e": "node tests/e2e/demo.e2e.mjs"
+    "test:e2e": "node tests/e2e.mjs",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.66.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.6"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
-    "jsdom": "^30.1.3",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-pwa": "^0.21.2",

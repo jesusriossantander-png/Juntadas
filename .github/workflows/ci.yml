@@ -15,11 +15,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Tipos
-        run: npm run typecheck
-      - name: Pruebas unitarias (cálculos financieros, votaciones, recordatorios)
-        run: npm test
-      - name: Pruebas de base de datos (migraciones + RLS + RPC en PostgreSQL)
-        run: npm run test:db
-      - name: Build de producción
-        run: npm run build
+      - run: npm test
+      - run: npm run build
