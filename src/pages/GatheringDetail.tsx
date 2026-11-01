@@ -5,7 +5,7 @@ import {
   RotateCcw, StickyNote, Info, X
 } from 'lucide-react';
 import { useAction, useApp, useGatheringSnapshot } from '../app/AppContext';
-import { ConfirmSheet, EmptyState, Field, LoadError, Money, Page, ProfileAvatar, Segmented, Sheet, Skeleton, Spinner, StatusBadge, Avatar } from '../components/ui';
+import { ask, ConfirmSheet, EmptyState, Field, LoadError, Money, Page, ProfileAvatar, Segmented, Sheet, Skeleton, Spinner, StatusBadge, Avatar } from '../components/ui';
 import { DateChip } from '../components/common';
 import { formatDateTime, fromLocalInput, toLocalInput } from '../lib/format';
 import { daysBetween, lastHeld, participantName, profileName } from '../lib/insights';
@@ -132,7 +132,7 @@ function Summary({ snap, g, canManage, reload }: { snap: GroupSnapshot; g: Gathe
                 </div>
                 <span className={`badge ${p.rsvp === 'yes' ? 'b-done' : p.rsvp === 'no' ? 'b-pending' : p.rsvp === 'maybe' ? 'b-partial' : 'b-none'}`}>{RSVP_LABEL[p.rsvp]}</span>
                 {canManage && p.user_id !== user!.id && (
-                  <button className="icon-btn" aria-label={`Quitar a ${name}`} disabled={busy} onClick={() => confirm(`¿Quitar a ${name} de la juntada?`) && run(() => backend.removeParticipant(p.id).then(reload), 'Asistente quitado')}><X size={18} /></button>
+                  <button className="icon-btn" aria-label={`Quitar a ${name}`} disabled={busy} onClick={async () => (await ask(`¿Quitar a ${name} de la juntada?`, { danger: true, confirmLabel: 'Quitar' })) && run(() => backend.removeParticipant(p.id).then(reload), 'Asistente quitado')}><X size={18} /></button>
                 )}
               </div>
             );

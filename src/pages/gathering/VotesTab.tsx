@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Check, CheckCircle2, HelpCircle, Plus, Share2, Trash2, Trophy, X } from 'lucide-react';
 import { useAction, useApp } from '../../app/AppContext';
-import { Field, Sheet, Spinner } from '../../components/ui';
+import { ask, Field, Sheet, Spinner } from '../../components/ui';
 import { formatDateTime, fromLocalInput } from '../../lib/format';
 import { daysBetween, lastHeld, profileName } from '../../lib/insights';
 import { MENU_KINDS, VENUE_KINDS } from '../../lib/labels';
@@ -63,8 +63,8 @@ export default function VotesTab({ snap, g, canManage, reload }: { snap: GroupSn
               {who.length > 0 && <p className="xsmall faint">{who.map((v) => `${nameOf(v.user_id)} ${v.vote === 'yes' ? '✅' : v.vote === 'maybe' ? '🤔' : '❌'}`).join(' · ')}</p>}
               {canManage && open && (
                 <div className="row">
-                  {!isConfirmed && <button className="btn btn-sm btn-success grow" disabled={busy} onClick={() => confirm(`¿Confirmar ${formatDateTime(t.proposal.starts_at)}? Se avisará al grupo.`) && run(() => backend.confirmDate(t.proposal.id).then(reload), '¡Fecha confirmada! Avisá al grupo.')}><CheckCircle2 /> Confirmar esta fecha</button>}
-                  {(t.proposal.created_by === me || canManage) && !isConfirmed && <button className="icon-btn" aria-label="Borrar opción" onClick={() => confirm('¿Borrar esta opción y sus votos?') && run(() => backend.deleteDateOption(t.proposal.id).then(reload))}><Trash2 size={18} /></button>}
+                  {!isConfirmed && <button className="btn btn-sm btn-success grow" disabled={busy} onClick={async () => (await ask(`¿Confirmar ${formatDateTime(t.proposal.starts_at)}? Se avisará al grupo.`, { confirmLabel: 'Confirmar' })) && run(() => backend.confirmDate(t.proposal.id).then(reload), '¡Fecha confirmada! Avisá al grupo.')}><CheckCircle2 /> Confirmar esta fecha</button>}
+                  {(t.proposal.created_by === me || canManage) && !isConfirmed && <button className="icon-btn" aria-label="Borrar opción" onClick={async () => (await ask('¿Borrar esta opción y sus votos?', { danger: true, confirmLabel: 'Borrar' })) && run(() => backend.deleteDateOption(t.proposal.id).then(reload))}><Trash2 size={18} /></button>}
                 </div>
               )}
             </div>
@@ -111,7 +111,7 @@ function OptionPoll({ title, rows, mine, kinds, open, onVote, onAdd, onDelete, c
               <div className="bar" style={{ width: '100%' }}><i style={{ width: `${r.pct * 100}%` }} /></div>
               {r.voters.length > 0 && <span className="xsmall faint">{r.voters.map(nameOf).join(', ')}</span>}
             </button>
-            {open && canDelete(r.proposal.created_by) && <button className="icon-btn" style={{ alignSelf: 'center' }} aria-label="Borrar opción" onClick={() => confirm('¿Borrar esta opción?') && onDelete(r.proposal.id)}><Trash2 size={18} /></button>}
+            {open && canDelete(r.proposal.created_by) && <button className="icon-btn" style={{ alignSelf: 'center' }} aria-label="Borrar opción" onClick={async () => (await ask('¿Borrar esta opción?', { danger: true, confirmLabel: 'Borrar' })) && onDelete(r.proposal.id)}><Trash2 size={18} /></button>}
           </div>
         );
       })}

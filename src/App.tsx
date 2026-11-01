@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { HashRouter, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home, Plus, Users, UserRound } from 'lucide-react';
 import { AppProvider, useApp } from './app/AppContext';
-import { Skeleton, Toasts } from './components/ui';
+import { AskHost, Skeleton, Toasts } from './components/ui';
 import { UpdatePrompt } from './components/pwa';
 import { AuthPage, NewPasswordPage } from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -113,6 +113,7 @@ export default function App() {
           <Banners />
           <Routed />
           <Toasts />
+          <AskHost />
           <UpdatePrompt />
         </div>
       </AppProvider>

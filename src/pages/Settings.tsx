@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Bell, BookOpen, Camera, Download, LogOut, Moon, RotateCcw, Smartphone, Sun, SunMoon, Database, KeyRound } from 'lucide-react';
 import { useAction, useApp } from '../app/AppContext';
 import { useInstallPrompt } from '../components/pwa';
-import { Field, Page, ProfileAvatar, Segmented, Spinner, Switch } from '../components/ui';
+import { ask, Field, Page, ProfileAvatar, Segmented, Spinner, Switch } from '../components/ui';
 import { DemoBackend } from '../data/demoBackend';
 import { supabaseConfigured, switchMode } from '../data';
 import { compressImage } from '../lib/image';
@@ -116,7 +116,7 @@ export default function Settings() {
           <section className="card stack">
             <h3><Database size={18} style={{ verticalAlign: -3 }} /> Modo demo</h3>
             <p className="small muted">Estás usando datos ficticios guardados solo en este navegador. No se mezclan con datos reales.</p>
-            <button className="btn" onClick={() => { if (confirm('¿Restaurar los datos de demostración originales? Se pierden los cambios de prueba.')) { backend.reset(); location.reload(); } }}><RotateCcw /> Restaurar datos de demo</button>
+            <button className="btn" onClick={async () => { if (await ask('¿Restaurar los datos de demostración originales? Se pierden los cambios de prueba.', { danger: true, confirmLabel: 'Restaurar' })) { backend.reset(); location.reload(); } }}><RotateCcw /> Restaurar datos de demo</button>
             {supabaseConfigured && <button className="btn btn-primary" onClick={() => switchMode('supabase')}>Usar la app real</button>}
           </section>
         )}

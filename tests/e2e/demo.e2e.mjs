@@ -144,8 +144,8 @@ await step('Votar menú y lugar', async () => {
   await expectText(a, 'Pablo', 3000);
 });
 await step('Confirmar fecha genera la juntada definitiva', async () => {
-  a.once('dialog', (d) => d.accept());
   await a.getByRole('button', { name: /Confirmar esta fecha/ }).first().click();
+  await a.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expectText(a, 'Fecha confirmada');
 });
 await step('Crear grupo, invitar y aceptar invitación', async () => {

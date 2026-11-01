@@ -262,3 +262,23 @@ export function HelpTip({ children }: { children: ReactNode }) {
     </p>
   );
 }
+
+// ------------------------------------------------------------------ diálogo de confirmación propio
+// Reemplaza window.confirm (que se ve mal en celulares y no existe en algunos visores).
+type Ask = { text: string; danger?: boolean; confirmLabel?: string; resolve: (v: boolean) => void };
+let pushAsk: ((a: Ask) => void) | null = null;
+export function ask(text: string, opts: { danger?: boolean; confirmLabel?: string } = {}): Promise<boolean> {
+  return new Promise((resolve) => (pushAsk ? pushAsk({ text, ...opts, resolve }) : resolve(window.confirm(text))));
+}
+export function AskHost() {
+  const [cur, setCur] = useState<Ask | null>(null);
+  useEffect(() => {
+    pushAsk = setCur;
+    return () => { pushAsk = null; };
+  }, []);
+  const close = (v: boolean) => { cur?.resolve(v); setCur(null); };
+  return (
+    <ConfirmSheet open={!!cur} onClose={() => close(false)} onConfirm={() => close(true)} title={cur?.text ?? ''}
+      danger={cur?.danger} confirmLabel={cur?.confirmLabel ?? 'Sí, dale'} />
+  );
+}

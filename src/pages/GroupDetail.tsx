@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Bell, Copy, Crown, LogOut, MoreVertical, Pencil, Share2, Trash2, UserMinus, UserPlus, Link as LinkIcon } from 'lucide-react';
 import { useAction, useApp, useSnapshot } from '../app/AppContext';
-import { ConfirmSheet, Field, GroupIcon, LoadError, Page, ProfileAvatar, Segmented, Sheet, Skeleton, Spinner, Switch } from '../components/ui';
+import { ask, ConfirmSheet, Field, GroupIcon, LoadError, Page, ProfileAvatar, Segmented, Sheet, Skeleton, Spinner, Switch } from '../components/ui';
 import { formatDate } from '../lib/format';
 import { profileName } from '../lib/insights';
 import { REMINDER_PRESETS } from '../lib/labels';
@@ -21,6 +21,8 @@ export default function GroupDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [memberMenu, setMemberMenu] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customDays, setCustomDays] = useState('');
 
   const loadInvites = useCallback(() => {
     if (groupId) backend.listInvitations(groupId).then(setInvites).catch(() => undefined);
@@ -91,11 +93,15 @@ export default function GroupDetail() {
               <>
                 <Segmented ariaLabel="Frecuencia" value={presetValue} onChange={(v) => {
                   if (!isAdmin) return toast('Solo un admin puede cambiar esto', 'error');
-                  if (v === 0) {
-                    const d = Number(prompt('¿Cada cuántos días? (1 a 365)', String(s.reminder_days)));
-                    if (d >= 1 && d <= 365) setReminder({ reminder_days: Math.round(d) });
-                  } else setReminder({ reminder_days: v });
+                  if (v === 0) setCustomOpen(true);
+                  else setReminder({ reminder_days: v });
                 }} options={[...REMINDER_PRESETS.map((d) => ({ value: d, label: `${d}d` })), { value: 0, label: presetValue ? 'Otro' : `${s.reminder_days}d` }]} />
+                {customOpen && isAdmin && (
+                  <div className="row">
+                    <div className="input-affix grow"><input className="input" inputMode="numeric" value={customDays} onChange={(e) => setCustomDays(e.target.value.replace(/\D/g, ''))} placeholder="Ej: 21" aria-label="Días personalizados" /><span>días</span></div>
+                    <button className="btn btn-primary" disabled={!(Number(customDays) >= 1 && Number(customDays) <= 365)} onClick={() => { setReminder({ reminder_days: Number(customDays) }); setCustomOpen(false); }}>Guardar</button>
+                  </div>
+                )}
                 <p className="hint">Frecuencia actual: cada {s.reminder_days} días. {!isAdmin && 'Solo los administradores pueden cambiarla.'}</p>
               </>
             )}
@@ -121,7 +127,7 @@ export default function GroupDetail() {
               <button className="btn" disabled={busy} onClick={async () => { await run(() => backend.setMemberRole(snap.group.id, m.user_id, m.role === 'admin' ? 'member' : 'admin'), 'Rol actualizado'); setMemberMenu(null); reload(); }}>
                 <Crown /> {m.role === 'admin' ? 'Quitar administrador' : 'Hacer administrador'}
               </button>
-              <button className="btn btn-danger" disabled={busy} onClick={async () => { if (!confirm('¿Quitar a esta persona del grupo?')) return; await run(() => backend.removeMember(snap.group.id, m.user_id), 'Integrante quitado'); setMemberMenu(null); reload(); }}>
+              <button className="btn btn-danger" disabled={busy} onClick={async () => { if (!(await ask('¿Quitar a esta persona del grupo?', { danger: true, confirmLabel: 'Quitar' }))) return; await run(() => backend.removeMember(snap.group.id, m.user_id), 'Integrante quitado'); setMemberMenu(null); reload(); }}>
                 <UserMinus /> Quitar del grupo
               </button>
             </div>

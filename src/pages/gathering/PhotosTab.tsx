@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { useAction, useApp } from '../../app/AppContext';
-import { EmptyState, Sheet, Spinner, useFileUrl } from '../../components/ui';
+import { ask, EmptyState, Sheet, Spinner, useFileUrl } from '../../components/ui';
 import { compressImage } from '../../lib/image';
 import type { Gathering, GroupSnapshot, Photo } from '../../lib/types';
 
@@ -41,7 +41,7 @@ export default function PhotosTab({ snap, g, canManage, reload }: { snap: GroupS
           <div className="stack">
             <Full photo={view} />
             {(view.uploaded_by === user!.id || canManage) && (
-              <button className="btn btn-danger" disabled={busy} onClick={async () => { if (!confirm('¿Borrar esta foto?')) return; await run(() => backend.deletePhoto(view.id).then(reload), 'Foto borrada'); setView(null); }}><Trash2 /> Borrar</button>
+              <button className="btn btn-danger" disabled={busy} onClick={async () => { if (!(await ask('¿Borrar esta foto?', { danger: true, confirmLabel: 'Borrar' }))) return; await run(() => backend.deletePhoto(view.id).then(reload), 'Foto borrada'); setView(null); }}><Trash2 /> Borrar</button>
             )}
           </div>
         )}
