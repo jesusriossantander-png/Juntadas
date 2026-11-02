@@ -30,7 +30,7 @@ await step('Compraron tres, se divide entre cuatro', async () => {
   const montos = ['50.000', '30000', '20.000'];
   for (let i = 0; i < 3; i++) {
     await p.getByLabel(`Nombre de la persona ${i + 1}`).fill(nombres[i]);
-    await p.getByLabel(`Cuánto puso ${nombres[i]}`).fill(montos[i]);
+    await p.getByLabel(`Comida de ${nombres[i]}`).fill(montos[i]);
   }
   await p.getByRole('button', { name: 'Agregar persona' }).click();
   await p.getByLabel('Nombre de la persona 4').fill('Nico');
@@ -78,7 +78,7 @@ await step('Editar una juntada guardada', async () => {
   await p.getByRole('button', { name: 'Registro' }).click();
   await p.getByRole('button', { name: 'Editar' }).click();
   await see(p, 'Editar juntada');
-  await p.getByLabel('Cuánto puso Nico').fill('4.000');
+  await p.getByLabel('Comida de Nico').fill('4.000');
   await p.getByRole('button', { name: 'Guardar cambios' }).click();
   await see(p, '$ 104.000');
 });
@@ -108,21 +108,21 @@ await step('Borrar una juntada', async () => {
 await step('El que no toma no paga el alcohol y el que estuvo un rato paga menos', async () => {
   await p.getByRole('button', { name: 'Calcular' }).click();
   for (const n of ['Jesús', 'Pablo', 'Nico']) await p.getByRole('button', { name: n, exact: false }).first().click();
-  await p.getByLabel('Cuánto puso Jesús').fill('60.000');
-  await p.getByLabel('Cuánto puso Pablo').fill('20.000');
-  await p.getByRole('switch', { name: /Separar el alcohol/ }).click();
-  await p.getByLabel('Alcohol que compró Pablo').fill('20.000');
+  await p.getByLabel('Comida de Jesús').fill('60.000');
+  await p.getByLabel('Bebida de Pablo').fill('20.000');
+  await p.getByRole('switch', { name: /no toma no paga la bebida/ }).click();
   await p.getByLabel('Nico toma alcohol').click();
   await see(p, 'No toma');
   // comida 60.000 / 3 = 20.000 · alcohol 20.000 entre Jesús y Pablo
-  const nico = await p.getByLabel('Cuánto puso Nico').locator('xpath=ancestor::div[contains(@class,"card")]').first().innerText();
-  if (!nico.includes('Le toca $ 20.000')) throw new Error('Nico: ' + nico);
+  const tag = (n) => p.getByLabel('Lo que gastó cada uno').locator('.tag-persona', { hasText: n }).innerText();
+  if (!(await tag('Nico')).includes('Debe $ 20.000')) throw new Error('Nico: ' + (await tag('Nico')));
+  if (!(await tag('Pablo')).includes('Bebida:\n$ 20.000') && !(await tag('Pablo')).includes('$ 20.000')) throw new Error('Pablo: ' + (await tag('Pablo')));
   await p.getByLabel('Cuánto estuvo Nico').selectOption('50');
   // comida 60.000 en 100+100+50 → Nico 12.000
-  await see(p, 'Le toca $ 12.000');
+  if (!(await tag('Nico')).includes('Debe $ 12.000')) throw new Error('Nico 50%: ' + (await tag('Nico')));
   const href = await p.getByRole('link', { name: /Mandar cuentas por WhatsApp/ }).getAttribute('href');
   const t = decodeURIComponent(href.split('text=')[1]);
-  if (!t.includes('No toman alcohol: Nico') || !t.includes('Nico (50%)')) throw new Error(t);
+  if (!t.includes('No toman (no pagan bebida): Nico') || !t.includes('Nico (50%)')) throw new Error(t);
   await p.screenshot({ path: `${SHOTS}/alcohol.png`, fullPage: true });
 });
 await step('Funciona sin internet (instalable)', async () => {

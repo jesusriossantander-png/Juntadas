@@ -337,3 +337,12 @@ button.list-item { width: 100%; border: none; background: none; text-align: left
 .date-chip .d { font-size: 1.25rem; font-weight: 850; padding: 3px 0 4px; font-family: var(--font-display); }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ------------------------------------------------------------- resultado: total + etiquetas */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.total-box { position: sticky; top: calc(var(--header-h) + var(--safe-t) + 10px); padding: 14px; }
+.amount-total { font-size: clamp(1.35rem, 6.2vw, 2rem); font-weight: 850; font-family: var(--font-display); letter-spacing: -.02em; line-height: 1.1; margin-top: 2px; }
+.tag-persona { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--ember); border-radius: 12px; padding: 8px 10px; font-size: .82rem; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tag-line { display: flex; justify-content: space-between; gap: 6px; }
+.tag-saldo { font-weight: 700; font-size: .78rem; margin-top: 2px; }
+@media (max-width: 340px) { .split { grid-template-columns: 1fr; } .total-box { position: static; } }

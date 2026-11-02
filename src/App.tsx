@@ -3,7 +3,7 @@ import {
   ArrowRight, BellRing, Calculator, Check, ChevronDown, Download, History, Pencil, Plus, Save, Settings, Share2, Trash2, Upload, UserPlus, X, RotateCcw
 } from 'lucide-react';
 import {
-  calcular, cargar, pct, tomaAlcohol, diasSinJuntarse, fechaLocal, guardar, sumarAmigos, tocaJuntarse, validar, type Datos, type Juntada, type Persona
+  alcoholDe, calcular, cargar, pct, tomaAlcohol, diasSinJuntarse, fechaLocal, guardar, sumarAmigos, tocaJuntarse, validar, type Datos, type Juntada, type Persona
 } from './lib/juntada';
 import { getThemePref, setThemePref, type ThemePref } from './lib/theme';
 import { Confirm, Logo, MoneyInput, Toasts, fechaLarga, pesos, toast, whatsapp } from './ui';
@@ -128,8 +128,8 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
       <button className="card tight row-between" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
         role="switch" aria-checked={sep} onClick={() => setB({ ...b, separarAlcohol: !sep })}>
         <span>
-          <span className="bold">🍺 Separar el alcohol</span>
-          <span className="faint small" style={{ display: 'block' }}>Lo que se gastó en alcohol lo pagan solo los que toman.</span>
+          <span className="bold">🍺 El que no toma no paga la bebida</span>
+          <span className="faint small" style={{ display: 'block' }}>La bebida se divide solo entre los que toman; la comida, entre todos.</span>
         </span>
         <span className={`switch ${sep ? 'on' : ''}`} aria-hidden />
       </button>
@@ -141,28 +141,28 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
             <div className="row">
               <input className="input grow" value={p.nombre} placeholder={`Nombre ${i + 1}`} maxLength={40} aria-label={`Nombre de la persona ${i + 1}`}
                 list="amigos" onChange={(e) => upd(p.id, { nombre: e.target.value })} />
-              <button className="icon-btn" aria-label={`Quitar a ${p.nombre || `persona ${i + 1}`}`} onClick={() => setB({ ...b, personas: b.personas.filter((x) => x.id !== p.id) })}><X /></button>
-            </div>
-            <div className="row">
-              <div className="grow"><MoneyInput cents={p.puso} onChange={(c) => upd(p.id, { puso: c })} ariaLabel={`Cuánto puso ${p.nombre || `la persona ${i + 1}`}`} /></div>
               <button className={`chip ${p.participa ? 'on' : ''}`} style={{ minHeight: 48, borderRadius: 13 }} aria-pressed={p.participa}
                 onClick={() => upd(p.id, { participa: !p.participa })}>
                 {p.participa ? <><Check /> Entra</> : 'No entra'}
               </button>
+              <button className="icon-btn" aria-label={`Quitar a ${p.nombre || `persona ${i + 1}`}`} onClick={() => setB({ ...b, personas: b.personas.filter((x) => x.id !== p.id) })}><X /></button>
             </div>
-            {sep && (
-              <div className="row">
-                <div className="grow">
-                  <span className="xsmall faint">De eso, en alcohol</span>
-                  <MoneyInput cents={p.alcohol ?? 0} onChange={(c) => upd(p.id, { alcohol: c })} ariaLabel={`Alcohol que compró ${p.nombre || `la persona ${i + 1}`}`} />
-                </div>
-                <button className={`chip ${tomaAlcohol(p) ? 'on' : ''}`} style={{ minHeight: 48, borderRadius: 13, alignSelf: 'flex-end' }} aria-pressed={tomaAlcohol(p)}
-                  aria-label={`${p.nombre || `Persona ${i + 1}`} toma alcohol`} onClick={() => upd(p.id, { toma: !tomaAlcohol(p) })}>
-                  {tomaAlcohol(p) ? '🍺 Toma' : '🚫 No toma'}
-                </button>
-              </div>
+            <div className="grid-2">
+              <label className="field">
+                <span className="xsmall faint">🍖 Comida</span>
+                <MoneyInput cents={p.puso - alcoholDe(p)} onChange={(c) => upd(p.id, { puso: c + alcoholDe(p) })} ariaLabel={`Comida de ${p.nombre || `la persona ${i + 1}`}`} />
+              </label>
+              <label className="field">
+                <span className="xsmall faint">🍺 Bebida</span>
+                <MoneyInput cents={alcoholDe(p)} onChange={(c) => upd(p.id, { alcohol: c, puso: p.puso - alcoholDe(p) + c })} ariaLabel={`Bebida de ${p.nombre || `la persona ${i + 1}`}`} />
+              </label>
+            </div>
+            {sep && p.participa && (
+              <button className={`chip ${tomaAlcohol(p) ? 'on' : ''}`} style={{ alignSelf: 'flex-start' }} aria-pressed={tomaAlcohol(p)}
+                aria-label={`${p.nombre || `Persona ${i + 1}`} toma alcohol`} onClick={() => upd(p.id, { toma: !tomaAlcohol(p) })}>
+                {tomaAlcohol(p) ? '🍺 Toma' : '🚫 No toma'}
+              </button>
             )}
-            {sep && (p.alcohol ?? 0) > p.puso && <span className="error-text">El alcohol no puede ser más de lo que puso.</span>}
             {p.participa && (
               <div className="row">
                 <span className="small faint" style={{ flexShrink: 0 }}>Estuvo</span>
@@ -182,14 +182,6 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
                     <span>%</span>
                   </div>
                 )}
-              </div>
-            )}
-            {r.total > 0 && p.nombre.trim() && (
-              <div className="xsmall faint">
-                {!p.participa ? 'No entra en la división' : <>Le toca {pesos(r.parte[p.id])} · </>}
-                {r.saldo[p.id] > 0 && <span className="pos">le deben {pesos(r.saldo[p.id])}</span>}
-                {r.saldo[p.id] < 0 && <span className="neg">debe {pesos(-r.saldo[p.id])}</span>}
-                {r.saldo[p.id] === 0 && p.participa && <span>está justo</span>}
               </div>
             )}
           </div>
@@ -221,7 +213,10 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
 }
 
 function textoCuentas(r: ReturnType<typeof calcular>, nombre: (id: string) => string, titulo: string, fecha: string, personas: Persona[]) {
-  const pusieron = personas.filter((p) => p.puso > 0).map((p) => `${nombre(p.id)} ${pesos(p.puso)}`).join(', ');
+  const pusieron = personas.filter((p) => p.puso > 0).map((p) => {
+    const beb = alcoholDe(p);
+    return beb ? `${nombre(p.id)} ${pesos(p.puso - beb)} comida + ${pesos(beb)} bebida` : `${nombre(p.id)} ${pesos(p.puso)}`;
+  }).join(', ');
   const part = personas.filter((p) => p.participa);
   const noToman = r.alcohol > 0 ? part.filter((p) => !tomaAlcohol(p)).map((p) => nombre(p.id)) : [];
   const parciales = part.filter((p) => pct(p) < 100).map((p) => `${nombre(p.id)} (${pct(p)}%)`);
@@ -231,7 +226,7 @@ function textoCuentas(r: ReturnType<typeof calcular>, nombre: (id: string) => st
       ? `Total: ${pesos(r.total)} · ${r.participantes} personas · ${pesos(r.porCabeza)} c/u`
       : `Total: ${pesos(r.total)}${r.alcohol ? ` (alcohol ${pesos(r.alcohol)})` : ''} · ${r.participantes} personas`,
     `Pusieron: ${pusieron}`,
-    ...(noToman.length ? [`No toman alcohol: ${noToman.join(', ')}`] : []),
+    ...(noToman.length ? [`No toman (no pagan bebida): ${noToman.join(', ')}`] : []),
     ...(parciales.length ? [`Estuvieron un rato: ${parciales.join(', ')}`] : []),
     ...(r.porCabeza == null ? [`A cada uno le toca: ${part.map((p) => `${nombre(p.id)} ${pesos(r.parte[p.id])}`).join(', ')}`] : []),
     r.transferencias.length ? 'Cuentas:' : '¡Todos a mano! 🎉',
@@ -243,29 +238,52 @@ function Resultado({ r, nombre, titulo, fecha, personas }: { r: ReturnType<typeo
   if (r.total <= 0) {
     return <div className="card center muted small">Cuando cargues lo que puso cada uno, acá aparece cómo quedan las cuentas.</div>;
   }
+  const bebida = personas.reduce((a, p) => a + alcoholDe(p), 0);
+  const comida = r.total - bebida;
+  const visibles = personas.filter((p) => p.nombre.trim() || p.puso > 0);
   return (
-    <section className="card hero stack" aria-label="Resultado">
-      <div className="kpi-hero">
-        <div>
-          <div className="small muted bold">Total gastado</div>
-          <div className="amount-xl">{pesos(r.total)}</div>
-          <div className="muted small">{!r.participantes ? 'Nadie entra en la división'
+    <section className="stack" aria-label="Resultado">
+      <div className="split">
+        <div className="card hero stack total-box" style={{ gap: 10 }}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div className="small muted bold">Total gastado</div>
+            <div className="amount-total num">{pesos(r.total)}</div>
+          </div>
+          <div className="stack" style={{ gap: 4, position: 'relative', zIndex: 1 }}>
+            <div className="row-between small"><span>🍖 Comida</span><b className="num">{pesos(comida)}</b></div>
+            <div className="row-between small"><span>🍺 Bebida</span><b className="num">{pesos(bebida)}</b></div>
+          </div>
+          <div className="muted xsmall" style={{ position: 'relative', zIndex: 1 }}>{!r.participantes ? 'Nadie entra en la división'
             : r.porCabeza != null ? `${pesos(r.porCabeza)} cada uno · ${r.participantes} personas`
-            : `${r.participantes} personas · según lo que tomó y el tiempo que estuvo cada uno`}</div>
+            : `${r.participantes} personas · según lo que tomó y el tiempo que estuvo`}</div>
+        </div>
+        <div className="stack tags" style={{ gap: 8 }} aria-label="Lo que gastó cada uno">
+          {visibles.map((p) => {
+            const s = r.saldo[p.id];
+            return (
+              <div key={p.id} className="tag-persona">
+                <div className="bold ellipsis">{nombre(p.id)}{!p.participa && <span className="faint xsmall"> · no entra</span>}{p.participa && pct(p) < 100 && <span className="faint xsmall"> · {pct(p)}%</span>}</div>
+                <div className="tag-line"><span className="faint">Comida:</span><span className="num">{pesos(p.puso - alcoholDe(p))}</span></div>
+                <div className="tag-line"><span className="faint">Bebida:</span><span className="num">{pesos(alcoholDe(p))}</span></div>
+                <div className={`tag-saldo ${s > 0 ? 'pos' : s < 0 ? 'neg' : 'faint'}`}>{s > 0 ? `Le deben ${pesos(s)}` : s < 0 ? `Debe ${pesos(-s)}` : 'Está justo'}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div className="stack" style={{ gap: 8, position: 'relative', zIndex: 1 }}>
+
+      <div className="card stack" style={{ gap: 8 }}>
+        <h3>¿Quién le paga a quién?</h3>
         {r.transferencias.length === 0 ? (
-          <p className="bold">¡Están todos a mano! 🎉</p>
+          <p className="bold pos">¡Están todos a mano! 🎉</p>
         ) : r.transferencias.map((t) => (
-          <div key={t.from + t.to} className="row-between" style={{ background: 'rgba(0,0,0,.18)', borderRadius: 12, padding: '10px 12px' }}>
-            <span className="row" style={{ gap: 6, minWidth: 0 }}><b className="ellipsis">{nombre(t.from)}</b><ArrowRight size={16} /><b className="ellipsis">{nombre(t.to)}</b></span>
+          <div key={t.from + t.to} className="row-between" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '10px 12px' }}>
+            <span className="row" style={{ gap: 6, minWidth: 0 }}><b className="ellipsis">{nombre(t.from)}</b><ArrowRight size={16} color="var(--ember)" /><b className="ellipsis">{nombre(t.to)}</b></span>
             <b className="num">{pesos(t.amountCents)}</b>
           </div>
         ))}
+        <a className="btn btn-wa" href={whatsapp(textoCuentas(r, nombre, titulo, fecha, personas))} target="_blank" rel="noreferrer"><Share2 /> Mandar cuentas por WhatsApp</a>
       </div>
-      <a className="btn" style={{ position: 'relative', zIndex: 1, background: '#fff7f0', color: '#3a1606', borderColor: 'transparent' }}
-        href={whatsapp(textoCuentas(r, nombre, titulo, fecha, personas))} target="_blank" rel="noreferrer"><Share2 /> Mandar cuentas por WhatsApp</a>
     </section>
   );
 }
@@ -321,7 +339,7 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
                     {j.personas.map((p) => (
                       <div key={p.id} className="row-between small" style={{ padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                         <span>{p.nombre}{!p.participa && <span className="faint"> (no entra)</span>}{p.participa && pct(p) < 100 && <span className="faint"> ({pct(p)}%)</span>}{p.participa && j.separarAlcohol && !tomaAlcohol(p) && <span className="faint"> · no toma</span>}</span>
-                        <span className="num">puso {pesos(p.puso)} · <span className={r.saldo[p.id] > 0 ? 'pos' : r.saldo[p.id] < 0 ? 'neg' : 'faint'}>{r.saldo[p.id] > 0 ? '+' : ''}{pesos(r.saldo[p.id])}</span></span>
+                        <span className="num">🍖 {pesos(p.puso - alcoholDe(p))} · 🍺 {pesos(alcoholDe(p))} · <span className={r.saldo[p.id] > 0 ? 'pos' : r.saldo[p.id] < 0 ? 'neg' : 'faint'}>{r.saldo[p.id] > 0 ? '+' : ''}{pesos(r.saldo[p.id])}</span></span>
                       </div>
                     ))}
                   </div>
