@@ -141,7 +141,7 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
             <div className="row">
               <input className="input grow" value={p.nombre} placeholder={`Nombre ${i + 1}`} maxLength={40} aria-label={`Nombre de la persona ${i + 1}`}
                 list="amigos" onChange={(e) => upd(p.id, { nombre: e.target.value })} />
-              <button className={`chip ${p.participa ? 'on' : ''}`} style={{ minHeight: 48, borderRadius: 13 }} aria-pressed={p.participa}
+              <button className={`chip ${p.participa ? 'on' : ''}`} style={{ minHeight: 40, borderRadius: 10 }} aria-pressed={p.participa}
                 onClick={() => upd(p.id, { participa: !p.participa })}>
                 {p.participa ? <><Check /> Entra</> : 'No entra'}
               </button>
@@ -157,26 +157,25 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
                 <MoneyInput cents={alcoholDe(p)} onChange={(c) => upd(p.id, { alcohol: c, puso: p.puso - alcoholDe(p) + c })} ariaLabel={`Bebida de ${p.nombre || `la persona ${i + 1}`}`} />
               </label>
             </div>
-            {sep && p.participa && (
-              <button className={`chip ${tomaAlcohol(p) ? 'on' : ''}`} style={{ alignSelf: 'flex-start' }} aria-pressed={tomaAlcohol(p)}
-                aria-label={`${p.nombre || `Persona ${i + 1}`} toma alcohol`} onClick={() => upd(p.id, { toma: !tomaAlcohol(p) })}>
-                {tomaAlcohol(p) ? '🍺 Toma' : '🚫 No toma'}
-              </button>
-            )}
             {p.participa && (
-              <div className="row">
-                <span className="small faint" style={{ flexShrink: 0 }}>Estuvo</span>
+              <div className="row" style={{ gap: 6 }}>
+                {sep && (
+                  <button className={`chip ${tomaAlcohol(p) ? 'on' : ''}`} style={{ flexShrink: 0, minHeight: 34 }} aria-pressed={tomaAlcohol(p)}
+                    aria-label={`${p.nombre || `Persona ${i + 1}`} toma alcohol`} onClick={() => upd(p.id, { toma: !tomaAlcohol(p) })}>
+                    {tomaAlcohol(p) ? '🍺 Toma' : '🚫 No toma'}
+                  </button>
+                )}
                 <select className="select input-sm grow" aria-label={`Cuánto estuvo ${p.nombre || `la persona ${i + 1}`}`}
                   value={[100, 75, 50, 25].includes(pct(p)) ? String(pct(p)) : 'otro'}
                   onChange={(e) => upd(p.id, { porcentaje: e.target.value === 'otro' ? 80 : Number(e.target.value) })}>
-                  <option value="100">Toda la juntada (100%)</option>
-                  <option value="75">Casi toda (75%)</option>
+                  <option value="100">Estuvo todo (100%)</option>
+                  <option value="75">Casi todo (75%)</option>
                   <option value="50">La mitad (50%)</option>
                   <option value="25">Un rato (25%)</option>
-                  <option value="otro">Otro porcentaje…</option>
+                  <option value="otro">Otro %…</option>
                 </select>
                 {![100, 75, 50, 25].includes(pct(p)) && (
-                  <div className="input-affix" style={{ width: 86 }}>
+                  <div className="input-affix" style={{ width: 74 }}>
                     <input className="input input-sm num" inputMode="numeric" value={pct(p)} aria-label={`Porcentaje de ${p.nombre || `la persona ${i + 1}`}`}
                       onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 3)); upd(p.id, { porcentaje: Math.min(100, Math.max(1, n || 1)) }); }} />
                     <span>%</span>

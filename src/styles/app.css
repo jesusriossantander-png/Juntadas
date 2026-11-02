@@ -346,3 +346,50 @@ button.list-item { width: 100%; border: none; background: none; text-align: left
 .tag-line { display: flex; justify-content: space-between; gap: 6px; }
 .tag-saldo { font-weight: 700; font-size: .78rem; margin-top: 2px; }
 @media (max-width: 340px) { .split { grid-template-columns: 1fr; } .total-box { position: static; } }
+
+/* ------------------------------------------------------------- modo compacto (pantallas de celular) */
+:root { --nav-h: 56px; --header-h: 46px; --radius: 13px; }
+body { font-size: 14px; line-height: 1.38; }
+h1 { font-size: 1.25rem; }
+h2 { font-size: 1rem; }
+h3 { font-size: .92rem; }
+.main { padding: 10px 12px calc(var(--nav-h) + var(--safe-b) + 18px); }
+.stack { gap: 8px; }
+.stack-lg { gap: 14px; }
+.grid-2, .grid-3 { gap: 8px; }
+.card { padding: 11px; border-radius: 13px; }
+.card.tight { padding: 9px; }
+.brand { font-size: .95rem; }
+.brand-mark { width: 26px; height: 26px; border-radius: 8px; }
+.section-title h2 { font-size: .95rem; }
+.label { font-size: .78rem; }
+.hint, .xsmall { font-size: .7rem; }
+.small { font-size: .8rem; }
+/* Los campos mantienen 16px de letra: en iPhone, con menos hacen zoom al tocarlos. */
+.input, .select, .textarea { min-height: 40px; padding: 7px 10px; border-radius: 10px; }
+.input.money { font-size: 1.3rem; min-height: 48px; }
+.input-sm { min-height: 34px; padding: 5px 8px; font-size: 16px; }
+.input-affix > span { left: 10px; }
+.btn { min-height: 40px; padding: 0 14px; border-radius: 11px; font-size: .88rem; gap: 6px; }
+.btn svg { width: 17px; height: 17px; }
+.btn-sm { min-height: 32px; padding: 0 10px; font-size: .8rem; }
+.icon-btn { width: 34px; height: 34px; }
+.icon-btn svg { width: 19px; height: 19px; }
+.chip { min-height: 32px; padding: 0 10px; font-size: .8rem; }
+.chip svg { width: 14px; height: 14px; }
+.switch { width: 42px; height: 24px; }
+.switch::after { width: 18px; height: 18px; }
+.switch.on::after { transform: translateX(18px); }
+.navlink { font-size: .66rem; gap: 2px; }
+.navlink svg { width: 20px; height: 20px; }
+.stat { padding: 10px; }
+.stat-value { font-size: 1.1rem; }
+.stat-label { font-size: .66rem; }
+.badge { font-size: .66rem; padding: 2px 7px; }
+.empty { padding: 24px 14px; }
+.amount-total { font-size: clamp(1.15rem, 5.4vw, 1.7rem); }
+.tag-persona { padding: 6px 8px; font-size: .74rem; border-radius: 10px; }
+.tag-saldo { font-size: .72rem; }
+.total-box { padding: 11px; }
+.toast { padding: 9px 13px; font-size: .84rem; }
+.sheet { padding: 8px 14px calc(16px + var(--safe-b)); }
