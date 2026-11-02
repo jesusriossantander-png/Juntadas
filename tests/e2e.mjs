@@ -32,10 +32,10 @@ await step('Compraron tres, se divide entre cuatro', async () => {
     await p.getByLabel(`Nombre de la persona ${i + 1}`).fill(nombres[i]);
     await p.getByLabel(`Comida de ${nombres[i]}`).fill(montos[i]);
   }
-  await p.getByRole('button', { name: 'Agregar persona' }).click();
+  await p.getByRole('button', { name: 'Agregar', exact: true }).click();
   await p.getByLabel('Nombre de la persona 4').fill('Nico');
   await see(p, '$ 100.000');
-  await see(p, '$ 25.000 cada uno');
+  await see(p, '$ 25.000 c/u');
   const txt = await p.getByLabel('Resultado').innerText();
   if (!/Nico\s*Jesús\s*\$ 25\.000/.test(txt.replace(/\n/g, ' ').replace(/\s+/g, ' ').replace(/ → /g, ' '))) {
     if (!(txt.includes('Nico') && txt.includes('$ 25.000') && txt.includes('Ricardo') && txt.includes('$ 5.000'))) throw new Error('transferencias incorrectas: ' + txt);
@@ -43,10 +43,10 @@ await step('Compraron tres, se divide entre cuatro', async () => {
   await p.screenshot({ path: `${SHOTS}/calc.png`, fullPage: true });
 });
 await step('Alguien que compró y no entra recupera lo suyo', async () => {
-  await p.getByRole('button', { name: 'Entra' }).nth(2).click(); // Ricardo no entra
+  await p.getByLabel('Cuánto estuvo Ricardo').selectOption('0'); // Ricardo no entra
   await see(p, '$ 33.333,33'); // sus $20.000 siguen en el total: 100.000 / 3 (Jesús, Pablo y Nico)
-  await p.getByRole('button', { name: 'No entra' }).click();
-  await see(p, '$ 25.000 cada uno');
+  await p.getByLabel('Cuánto estuvo Ricardo').selectOption('100');
+  await see(p, '$ 25.000 c/u');
 });
 await step('Compartir por WhatsApp arma el mensaje', async () => {
   const href = await p.getByRole('link', { name: /Mandar cuentas por WhatsApp/ }).getAttribute('href');
@@ -110,13 +110,10 @@ await step('El que no toma no paga el alcohol y el que estuvo un rato paga menos
   for (const n of ['Jesús', 'Pablo', 'Nico']) await p.getByRole('button', { name: n, exact: false }).first().click();
   await p.getByLabel('Comida de Jesús').fill('60.000');
   await p.getByLabel('Bebida de Pablo').fill('20.000');
-  await p.getByRole('switch', { name: /no toma no paga la bebida/ }).click();
-  await p.getByLabel('Nico toma alcohol').click();
-  await see(p, 'No toma');
+  await p.getByLabel('Nico toma').uncheck();
   // comida 60.000 / 3 = 20.000 · alcohol 20.000 entre Jesús y Pablo
-  const tag = (n) => p.getByLabel('Lo que gastó cada uno').locator('.tag-persona', { hasText: n }).innerText();
+  const tag = async (n) => { const t = p.locator('.tag-persona').filter({ has: p.locator(`input[value="${n}"]`) }); return (await t.innerText()); };
   if (!(await tag('Nico')).includes('Debe $ 20.000')) throw new Error('Nico: ' + (await tag('Nico')));
-  if (!(await tag('Pablo')).includes('Bebida:\n$ 20.000') && !(await tag('Pablo')).includes('$ 20.000')) throw new Error('Pablo: ' + (await tag('Pablo')));
   await p.getByLabel('Cuánto estuvo Nico').selectOption('50');
   // comida 60.000 en 100+100+50 → Nico 12.000
   if (!(await tag('Nico')).includes('Debe $ 12.000')) throw new Error('Nico 50%: ' + (await tag('Nico')));

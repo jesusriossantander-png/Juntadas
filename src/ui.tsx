@@ -6,7 +6,7 @@ import { formatMoney, parseMoney } from './lib/money';
 export const pesos = (c: number) => formatMoney(c);
 
 /** Importe en pesos: acepta "50.000", "1.234,50", "2500". */
-export function MoneyInput({ cents, onChange, ariaLabel, big, autoFocus }: { cents: number; onChange: (c: number) => void; ariaLabel: string; big?: boolean; autoFocus?: boolean }) {
+export function MoneyInput({ cents, onChange, ariaLabel, big, small, autoFocus }: { cents: number; onChange: (c: number) => void; ariaLabel: string; big?: boolean; small?: boolean; autoFocus?: boolean }) {
   const show = (c: number) => (c ? formatMoney(c).replace('$ ', '') : '');
   const [text, setText] = useState(show(cents));
   const [focus, setFocus] = useState(false);
@@ -15,7 +15,7 @@ export function MoneyInput({ cents, onChange, ariaLabel, big, autoFocus }: { cen
   }, [cents, focus]);
   return (
     <div className="input-affix">
-      <input className={`input num ${big ? 'money' : ''}`} style={{ paddingLeft: 26 }} inputMode="decimal" autoComplete="off" placeholder="0"
+      <input className={`input num ${big ? 'money' : ''} ${small ? 'input-sm' : ''}`} style={{ paddingLeft: small ? 20 : 26 }} inputMode="decimal" autoComplete="off" placeholder="0"
         aria-label={ariaLabel} value={text} autoFocus={autoFocus}
         onFocus={(e) => { setFocus(true); e.target.select(); }} onBlur={() => setFocus(false)}
         onChange={(e) => {
@@ -23,7 +23,7 @@ export function MoneyInput({ cents, onChange, ariaLabel, big, autoFocus }: { cen
           setText(v);
           onChange(v ? parseMoney(v) ?? 0 : 0);
         }} />
-      <span style={{ left: 12, right: 'auto' }}>$</span>
+      <span style={{ left: small ? 8 : 12, right: 'auto' }}>$</span>
     </div>
   );
 }

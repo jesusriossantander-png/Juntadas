@@ -83,7 +83,8 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
 }) {
   const [error, setError] = useState<string | null>(null);
   const [limpiar, setLimpiar] = useState<string | null>(null);
-  const sep = !!b.separarAlcohol;
+  // La bebida siempre la pagan solo los que toman (si todos toman, da lo mismo).
+  const sep = true;
   const r = useMemo(() => calcular(b.personas, sep), [b.personas, sep]);
   const nombre = (id: string) => b.personas.find((p) => p.id === id)?.nombre.trim() || 'Sin nombre';
   const enLista = new Set(b.personas.map((p) => p.nombre.trim().toLowerCase()));
@@ -111,11 +112,12 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
     irARegistro();
   }
 
+  const visibles = b.personas;
   return (
     <div className="stack-lg">
       <div>
         <h1>{editando ? 'Editar juntada' : '¿Quién puso cuánto?'}</h1>
-        <p className="muted">Cargá lo que gastó cada uno y la app dice quién le paga a quién.</p>
+        <p className="muted small">Completá cada etiqueta: lo que puso en comida y en bebida, si toma y cuánto estuvo.</p>
       </div>
 
       <div className="grid-2">
@@ -125,78 +127,24 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
           <input className="input" type="date" value={b.fecha} max={fechaLocal()} onChange={(e) => setB({ ...b, fecha: e.target.value })} /></label>
       </div>
 
-      <button className="card tight row-between" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
-        role="switch" aria-checked={sep} onClick={() => setB({ ...b, separarAlcohol: !sep })}>
-        <span>
-          <span className="bold">🍺 El que no toma no paga la bebida</span>
-          <span className="faint small" style={{ display: 'block' }}>La bebida se divide solo entre los que toman; la comida, entre todos.</span>
-        </span>
-        <span className={`switch ${sep ? 'on' : ''}`} aria-hidden />
-      </button>
-
-      <section className="stack">
-        <div className="section-title"><h2>Personas ({b.personas.length})</h2></div>
-        {b.personas.map((p, i) => (
-          <div key={p.id} className={`card tight stack ${p.participa ? '' : ''}`} style={{ gap: 8, opacity: p.participa ? 1 : 0.75 }}>
-            <div className="row">
-              <input className="input grow" value={p.nombre} placeholder={`Nombre ${i + 1}`} maxLength={40} aria-label={`Nombre de la persona ${i + 1}`}
-                list="amigos" onChange={(e) => upd(p.id, { nombre: e.target.value })} />
-              <button className={`chip ${p.participa ? 'on' : ''}`} style={{ minHeight: 40, borderRadius: 10 }} aria-pressed={p.participa}
-                onClick={() => upd(p.id, { participa: !p.participa })}>
-                {p.participa ? <><Check /> Entra</> : 'No entra'}
-              </button>
-              <button className="icon-btn" aria-label={`Quitar a ${p.nombre || `persona ${i + 1}`}`} onClick={() => setB({ ...b, personas: b.personas.filter((x) => x.id !== p.id) })}><X /></button>
-            </div>
-            <div className="grid-2">
-              <label className="field">
-                <span className="xsmall faint">🍖 Comida</span>
-                <MoneyInput cents={p.puso - alcoholDe(p)} onChange={(c) => upd(p.id, { puso: c + alcoholDe(p) })} ariaLabel={`Comida de ${p.nombre || `la persona ${i + 1}`}`} />
-              </label>
-              <label className="field">
-                <span className="xsmall faint">🍺 Bebida</span>
-                <MoneyInput cents={alcoholDe(p)} onChange={(c) => upd(p.id, { alcohol: c, puso: p.puso - alcoholDe(p) + c })} ariaLabel={`Bebida de ${p.nombre || `la persona ${i + 1}`}`} />
-              </label>
-            </div>
-            {p.participa && (
-              <div className="row" style={{ gap: 6 }}>
-                {sep && (
-                  <button className={`chip ${tomaAlcohol(p) ? 'on' : ''}`} style={{ flexShrink: 0, minHeight: 34 }} aria-pressed={tomaAlcohol(p)}
-                    aria-label={`${p.nombre || `Persona ${i + 1}`} toma alcohol`} onClick={() => upd(p.id, { toma: !tomaAlcohol(p) })}>
-                    {tomaAlcohol(p) ? '🍺 Toma' : '🚫 No toma'}
-                  </button>
-                )}
-                <select className="select input-sm grow" aria-label={`Cuánto estuvo ${p.nombre || `la persona ${i + 1}`}`}
-                  value={[100, 75, 50, 25].includes(pct(p)) ? String(pct(p)) : 'otro'}
-                  onChange={(e) => upd(p.id, { porcentaje: e.target.value === 'otro' ? 80 : Number(e.target.value) })}>
-                  <option value="100">Estuvo todo (100%)</option>
-                  <option value="75">Casi todo (75%)</option>
-                  <option value="50">La mitad (50%)</option>
-                  <option value="25">Un rato (25%)</option>
-                  <option value="otro">Otro %…</option>
-                </select>
-                {![100, 75, 50, 25].includes(pct(p)) && (
-                  <div className="input-affix" style={{ width: 74 }}>
-                    <input className="input input-sm num" inputMode="numeric" value={pct(p)} aria-label={`Porcentaje de ${p.nombre || `la persona ${i + 1}`}`}
-                      onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 3)); upd(p.id, { porcentaje: Math.min(100, Math.max(1, n || 1)) }); }} />
-                    <span>%</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      <section className="tags-grid" aria-label="Personas">
+        {visibles.map((p, i) => (
+          <EtiquetaPersona key={p.id} p={p} i={i} saldo={r.total > 0 ? r.saldo[p.id] : null}
+            upd={(patch) => upd(p.id, patch)} quitar={() => setB({ ...b, personas: b.personas.filter((x) => x.id !== p.id) })} />
         ))}
-        <datalist id="amigos">{datos.amigos.map((a) => <option key={a} value={a} />)}</datalist>
-        {sugeridos.length > 0 && (
-          <div className="chips" aria-label="Amigos frecuentes">
-            {sugeridos.map((a) => (
-              <button key={a} className="chip" onClick={() => setB({ ...b, personas: [...b.personas, nuevaPersona(a)] })}><Plus /> {a}</button>
-            ))}
-            {sugeridos.length > 1 && <button className="chip on" onClick={() => setB({ ...b, personas: [...b.personas, ...sugeridos.map((a) => nuevaPersona(a))] })}><UserPlus /> Todos</button>}
-          </div>
-        )}
-        <button className="btn" onClick={() => setB({ ...b, personas: [...b.personas, nuevaPersona()] })}><UserPlus /> Agregar persona</button>
-        <p className="hint">“No entra”: compró pero no participa (no vino), recupera lo que puso. “Estuvo”: si llegó muy tarde o estuvo un rato, paga en proporción.</p>
+        <button className="tag-nueva" onClick={() => setB({ ...b, personas: [...b.personas, nuevaPersona()] })}>
+          <UserPlus /> Agregar
+        </button>
       </section>
+      <datalist id="amigos">{datos.amigos.map((a) => <option key={a} value={a} />)}</datalist>
+      {sugeridos.length > 0 && (
+        <div className="chips" aria-label="Amigos frecuentes">
+          {sugeridos.map((a) => (
+            <button key={a} className="chip" onClick={() => setB({ ...b, personas: [...b.personas, nuevaPersona(a)] })}><Plus /> {a}</button>
+          ))}
+          {sugeridos.length > 1 && <button className="chip on" onClick={() => setB({ ...b, personas: [...b.personas, ...sugeridos.map((a) => nuevaPersona(a))] })}><UserPlus /> Todos</button>}
+        </div>
+      )}
 
       {r.avisos.map((a) => <p key={a} className="small" style={{ color: 'var(--amber)' }}>⚠️ {a}</p>)}
       <Resultado r={r} nombre={nombre} titulo={b.titulo} fecha={b.fecha} personas={b.personas} />
@@ -207,6 +155,58 @@ function Calculadora({ datos, setDatos, b, setB, irARegistro }: {
         <button className="btn btn-primary" onClick={guardarJuntada}><Save /> {editando ? 'Guardar cambios' : 'Guardar'}</button>
       </div>
       <Confirm text={limpiar} label="Sí" onClose={() => setLimpiar(null)} onYes={() => setB(borradorVacio(datos.amigos))} />
+    </div>
+  );
+}
+
+/** Etiqueta editable de una persona: nombre, comida, bebida, si toma y cuánto estuvo. */
+function EtiquetaPersona({ p, i, saldo, upd, quitar }: { p: Persona; i: number; saldo: number | null; upd: (patch: Partial<Persona>) => void; quitar: () => void }) {
+  const quien = p.nombre.trim() || `la persona ${i + 1}`;
+  const estuvo = !p.participa ? '0' : [100, 75, 50, 25].includes(pct(p)) ? String(pct(p)) : 'otro';
+  return (
+    <div className={`tag-persona ${p.participa ? '' : 'fuera'}`}>
+      <div className="row" style={{ gap: 2 }}>
+        <input className="tag-nombre" value={p.nombre} placeholder={`Nombre ${i + 1}`} maxLength={40} list="amigos"
+          aria-label={`Nombre de la persona ${i + 1}`} onChange={(e) => upd({ nombre: e.target.value })} />
+        <button className="tag-x" aria-label={`Quitar a ${quien}`} onClick={quitar}><X size={15} /></button>
+      </div>
+      <label className="tag-campo"><span aria-hidden>🍖</span>
+        <MoneyInput small cents={p.puso - alcoholDe(p)} onChange={(c) => upd({ puso: c + alcoholDe(p) })} ariaLabel={`Comida de ${quien}`} />
+      </label>
+      <label className="tag-campo"><span aria-hidden>🍺</span>
+        <MoneyInput small cents={alcoholDe(p)} onChange={(c) => upd({ alcohol: c, puso: p.puso - alcoholDe(p) + c })} ariaLabel={`Bebida de ${quien}`} />
+      </label>
+      <div className="row" style={{ gap: 4 }}>
+        <label className="tag-toma">
+          <input type="checkbox" checked={tomaAlcohol(p)} disabled={!p.participa} aria-label={`${quien} toma`} onChange={(e) => upd({ toma: e.target.checked })} />
+          Toma
+        </label>
+        <select className="tag-select" value={estuvo} aria-label={`Cuánto estuvo ${quien}`}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === '0') upd({ participa: false });
+            else upd({ participa: true, porcentaje: v === 'otro' ? 80 : Number(v) });
+          }}>
+          <option value="100">100%</option>
+          <option value="75">75%</option>
+          <option value="50">50%</option>
+          <option value="25">25%</option>
+          <option value="otro">Otro…</option>
+          <option value="0">No entra</option>
+        </select>
+      </div>
+      {estuvo === 'otro' && (
+        <div className="input-affix">
+          <input className="input input-sm num" inputMode="numeric" value={pct(p)} aria-label={`Porcentaje de ${quien}`}
+            onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '').slice(0, 3)); upd({ porcentaje: Math.min(100, Math.max(1, n || 1)) }); }} />
+          <span>%</span>
+        </div>
+      )}
+      {saldo != null && (p.nombre.trim() || p.puso > 0) && (
+        <div className={`tag-saldo ${saldo > 0 ? 'pos' : saldo < 0 ? 'neg' : 'faint'}`}>
+          {!p.participa && saldo === 0 ? 'No entra' : saldo > 0 ? `Le deben ${pesos(saldo)}` : saldo < 0 ? `Debe ${pesos(-saldo)}` : 'Está justo'}
+        </div>
+      )}
     </div>
   );
 }
@@ -234,55 +234,34 @@ function textoCuentas(r: ReturnType<typeof calcular>, nombre: (id: string) => st
 }
 
 function Resultado({ r, nombre, titulo, fecha, personas }: { r: ReturnType<typeof calcular>; nombre: (id: string) => string; titulo: string; fecha: string; personas: Persona[] }) {
-  if (r.total <= 0) {
-    return <div className="card center muted small">Cuando cargues lo que puso cada uno, acá aparece cómo quedan las cuentas.</div>;
-  }
+  if (r.total <= 0) return null;
   const bebida = personas.reduce((a, p) => a + alcoholDe(p), 0);
-  const comida = r.total - bebida;
-  const visibles = personas.filter((p) => p.nombre.trim() || p.puso > 0);
   return (
     <section className="stack" aria-label="Resultado">
-      <div className="split">
-        <div className="card hero stack total-box" style={{ gap: 10 }}>
+      <div className="grid-2" style={{ alignItems: 'stretch' }}>
+        <div className="card hero stack" style={{ gap: 6, padding: 11 }}>
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div className="small muted bold">Total gastado</div>
+            <div className="xsmall muted bold">Total gastado</div>
             <div className="amount-total num">{pesos(r.total)}</div>
           </div>
-          <div className="stack" style={{ gap: 4, position: 'relative', zIndex: 1 }}>
-            <div className="row-between small"><span>🍖 Comida</span><b className="num">{pesos(comida)}</b></div>
-            <div className="row-between small"><span>🍺 Bebida</span><b className="num">{pesos(bebida)}</b></div>
+          <div className="stack xsmall" style={{ gap: 2, position: 'relative', zIndex: 1 }}>
+            <div className="row-between"><span>🍖 Comida</span><b className="num">{pesos(r.total - bebida)}</b></div>
+            <div className="row-between"><span>🍺 Bebida</span><b className="num">{pesos(bebida)}</b></div>
           </div>
-          <div className="muted xsmall" style={{ position: 'relative', zIndex: 1 }}>{!r.participantes ? 'Nadie entra en la división'
-            : r.porCabeza != null ? `${pesos(r.porCabeza)} cada uno · ${r.participantes} personas`
-            : `${r.participantes} personas · según lo que tomó y el tiempo que estuvo`}</div>
+          <div className="muted xsmall" style={{ position: 'relative', zIndex: 1 }}>{!r.participantes ? 'Nadie entra'
+            : r.porCabeza != null ? `${pesos(r.porCabeza)} c/u · ${r.participantes} personas` : `${r.participantes} personas`}</div>
         </div>
-        <div className="stack tags" style={{ gap: 8 }} aria-label="Lo que gastó cada uno">
-          {visibles.map((p) => {
-            const s = r.saldo[p.id];
-            return (
-              <div key={p.id} className="tag-persona">
-                <div className="bold ellipsis">{nombre(p.id)}{!p.participa && <span className="faint xsmall"> · no entra</span>}{p.participa && pct(p) < 100 && <span className="faint xsmall"> · {pct(p)}%</span>}</div>
-                <div className="tag-line"><span className="faint">Comida:</span><span className="num">{pesos(p.puso - alcoholDe(p))}</span></div>
-                <div className="tag-line"><span className="faint">Bebida:</span><span className="num">{pesos(alcoholDe(p))}</span></div>
-                <div className={`tag-saldo ${s > 0 ? 'pos' : s < 0 ? 'neg' : 'faint'}`}>{s > 0 ? `Le deben ${pesos(s)}` : s < 0 ? `Debe ${pesos(-s)}` : 'Está justo'}</div>
-              </div>
-            );
-          })}
+        <div className="card stack" style={{ gap: 6, padding: 11 }} aria-label="Quién le paga a quién">
+          <div className="xsmall bold faint">¿Quién le paga a quién?</div>
+          {r.transferencias.length === 0 ? <p className="small bold pos">¡Todos a mano! 🎉</p> : r.transferencias.map((t) => (
+            <div key={t.from + t.to} className="pago">
+              <span className="ellipsis"><b>{nombre(t.from)}</b> <ArrowRight size={12} color="var(--ember)" style={{ verticalAlign: -1 }} /> <b>{nombre(t.to)}</b></span>
+              <b className="num">{pesos(t.amountCents)}</b>
+            </div>
+          ))}
         </div>
       </div>
-
-      <div className="card stack" style={{ gap: 8 }}>
-        <h3>¿Quién le paga a quién?</h3>
-        {r.transferencias.length === 0 ? (
-          <p className="bold pos">¡Están todos a mano! 🎉</p>
-        ) : r.transferencias.map((t) => (
-          <div key={t.from + t.to} className="row-between" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '10px 12px' }}>
-            <span className="row" style={{ gap: 6, minWidth: 0 }}><b className="ellipsis">{nombre(t.from)}</b><ArrowRight size={16} color="var(--ember)" /><b className="ellipsis">{nombre(t.to)}</b></span>
-            <b className="num">{pesos(t.amountCents)}</b>
-          </div>
-        ))}
-        <a className="btn btn-wa" href={whatsapp(textoCuentas(r, nombre, titulo, fecha, personas))} target="_blank" rel="noreferrer"><Share2 /> Mandar cuentas por WhatsApp</a>
-      </div>
+      <a className="btn btn-wa" href={whatsapp(textoCuentas(r, nombre, titulo, fecha, personas))} target="_blank" rel="noreferrer"><Share2 /> Mandar cuentas por WhatsApp</a>
     </section>
   );
 }
