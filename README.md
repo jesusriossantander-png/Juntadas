@@ -22,7 +22,7 @@ Sin grupo, todo queda guardado en el celular. Con grupo, se guarda en Supabase (
 
 - **Supabase**: `supabase/migrations/20261102000100_grupo_compartido.sql` crea las tablas y las funciones. La app no puede leer las tablas directamente: solo llama funciones que exigen el código del grupo.
 - **Tiempo real**: cuando alguien guarda, los demás celulares se enteran por un canal de Supabase Realtime y recargan.
-- **Avisos**: `.github/workflows/avisos.yml` corre todos los días a las 10:17 (hora argentina) `scripts/avisos.mjs`, que pide a Supabase los grupos vencidos y manda la notificación (Web Push) a cada celular suscripto. Necesita el secret `SUPABASE_SECRET_KEY` en GitHub. La clave privada de los avisos se guarda en la tabla `config` de Supabase.
+- **Avisos**: `.github/workflows/avisos.yml` corre todos los días a las 10:17 (hora argentina) `scripts/avisos.mjs`, que pide a Supabase los grupos vencidos y manda la notificación (Web Push) a cada celular suscripto. Necesita el secret `JUNTADA` (clave secreta de Supabase) en GitHub. La clave privada de los avisos se guarda en la tabla `config` de Supabase.
 - En **iPhone**, las notificaciones solo llegan con la app agregada a la pantalla de inicio (iOS 16.4 o más nuevo).
 
 Pruebas: `npm test` (cálculos), `node tests/nube.integracion.mjs` y `node tests/grupo.e2e.mjs` (contra un Supabase local).

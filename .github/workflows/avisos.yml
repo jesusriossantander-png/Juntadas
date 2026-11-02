@@ -1,6 +1,6 @@
 # Una vez por día revisa los grupos y manda "¡Hace N días que no se juntan!"
 # a los celulares que activaron los avisos.
-# Requiere el secret SUPABASE_SECRET_KEY (Settings → Secrets and variables → Actions).
+# Requiere el secret JUNTADA (clave secreta de Supabase) (Settings → Secrets and variables → Actions).
 name: Avisos diarios
 
 on:
@@ -20,4 +20,4 @@ jobs:
       - run: npm ci
       - run: node scripts/avisos.mjs
         env:
-          SB_SECRET: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SB_SECRET: ${{ secrets.JUNTADA }}
