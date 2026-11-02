@@ -1,0 +1,23 @@
+# Una vez por día revisa los grupos y manda "¡Hace N días que no se juntan!"
+# a los celulares que activaron los avisos.
+# Requiere el secret SUPABASE_SECRET_KEY (Settings → Secrets and variables → Actions).
+name: Avisos diarios
+
+on:
+  schedule:
+    - cron: '17 13 * * *'   # 10:17 hora argentina
+  workflow_dispatch:
+
+jobs:
+  avisos:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/avisos.mjs
+        env:
+          SB_SECRET: ${{ secrets.SUPABASE_SECRET_KEY }}

@@ -1,0 +1,2 @@
+# Configuración mínima para la CLI de Supabase (pruebas locales: npx supabase start).
+project_id = "la-juntada"

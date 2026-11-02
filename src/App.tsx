@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight, BellRing, Calculator, ChevronDown, Download, History, Pencil, Plus, Save, Settings, Share2, Trash2, Upload, UserPlus, X, RotateCcw
+  ArrowRight, Bell, BellRing, Calculator, Copy, LogOut, Users, ChevronDown, Download, History, Pencil, Plus, Save, Settings, Share2, Trash2, Upload, UserPlus, X, RotateCcw
 } from 'lucide-react';
 import {
   alcoholDe, calcular, cargar, pct, tomaAlcohol, diasSinJuntarse, fechaLocal, guardar, sumarAmigos, tocaJuntarse, validar, type Datos, type Juntada, type Persona
 } from './lib/juntada';
 import { getThemePref, setThemePref, type ThemePref } from './lib/theme';
+import {
+  activarAvisos, avisarCambio, codigoDelLink, codigoGuardado, crearGrupo, desactivarAvisos, escucharGrupo, estadoAvisos,
+  guardarCodigo, linkInvitacion, sincronizar, traerGrupo, type EstadoAvisos
+} from './lib/nube';
 import { Confirm, Logo, MoneyInput, Toasts, fechaLarga, pesos, toast, whatsapp } from './ui';
 
 type Tab = 'calcular' | 'registro' | 'ajustes';
@@ -29,8 +33,79 @@ export default function App() {
     } catch { /* nada */ }
     return borradorVacio(cargar().amigos);
   });
-  const setDatos = (d: Datos) => { setDatosState(d); guardar(d); };
   useEffect(() => { try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador)); } catch { /* nada */ } }, [borrador]);
+
+  // ---- grupo compartido
+  const [codigo, setCodigo] = useState<string | null>(() => codigoGuardado());
+  const [nombreGrupo, setNombreGrupo] = useState<string>('');
+  const [cargando, setCargando] = useState(false);
+  const datosRef = useRef(datos);
+  datosRef.current = datos;
+  const cacheKey = (c: string) => `la-juntada:cache:${c}`;
+
+  const recargar = useCallback(async (c: string, avisarError = false) => {
+    try {
+      const d = await traerGrupo(c);
+      setNombreGrupo(d.nombreGrupo);
+      const { nombreGrupo: _n, ...resto } = d;
+      void _n;
+      setDatosState(resto);
+      try { localStorage.setItem(cacheKey(c), JSON.stringify({ ...resto, nombreGrupo: d.nombreGrupo })); } catch { /* nada */ }
+    } catch (e) {
+      if (avisarError) toast(`⚠️ ${(e as Error).message}`);
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  // Al abrir: link de invitación (?g=...) o grupo ya guardado.
+  useEffect(() => {
+    const delLink = codigoDelLink();
+    const c = delLink ?? codigoGuardado();
+    if (!c) return;
+    if (delLink) { guardarCodigo(delLink); setCodigo(delLink); }
+    try {
+      const cache = JSON.parse(localStorage.getItem(cacheKey(c)) || 'null');
+      if (cache) { setNombreGrupo(cache.nombreGrupo ?? ''); setDatosState(validar(cache)); }
+    } catch { /* nada */ }
+    setCargando(true);
+    recargar(c, true).then(() => delLink && toast('¡Te sumaste al grupo!'));
+  }, [recargar]);
+
+  // Cambios de los demás en vivo + al volver a la app.
+  useEffect(() => {
+    if (!codigo) return;
+    const off = escucharGrupo(codigo, () => recargar(codigo));
+    const alVolver = () => document.visibilityState === 'visible' && recargar(codigo);
+    document.addEventListener('visibilitychange', alVolver);
+    const t = setInterval(() => document.visibilityState === 'visible' && recargar(codigo), 60_000);
+    return () => { off(); document.removeEventListener('visibilitychange', alVolver); clearInterval(t); };
+  }, [codigo, recargar]);
+
+  const setDatos = (d: Datos) => {
+    const antes = datosRef.current;
+    setDatosState(d);
+    if (!codigo) { guardar(d); return; }
+    sincronizar(codigo, antes, d)
+      .then(() => { avisarCambio(); try { localStorage.setItem(cacheKey(codigo), JSON.stringify({ ...d, nombreGrupo })); } catch { /* nada */ } })
+      .catch((e) => { toast(`⚠️ No se guardó en el grupo: ${(e as Error).message}`); recargar(codigo); });
+  };
+
+  const unirseOCrear = async (nombre: string) => {
+    const c = await crearGrupo(nombre);
+    const locales = datosRef.current;
+    await sincronizar(c, { version: 1, juntadas: [], amigos: [], avisoDias: 30 }, locales); // sube lo que ya tenías
+    guardarCodigo(c);
+    setCodigo(c);
+    await recargar(c);
+    return c;
+  };
+  const salirDelGrupo = () => {
+    guardarCodigo(null);
+    setCodigo(null);
+    setNombreGrupo('');
+    setDatosState(cargar());
+  };
 
   const aviso = tocaJuntarse(datos);
 
@@ -39,13 +114,15 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <span className="brand"><span className="brand-mark"><Logo size={18} /></span> La Juntada</span>
+          {codigo && <span className="faint small ellipsis" style={{ marginLeft: 'auto' }}><Users size={14} style={{ verticalAlign: -2 }} /> {nombreGrupo || 'Grupo'}{cargando ? ' · …' : ''}</span>}
         </div>
       </header>
       <main className="main fade-in" key={tab}>
         {aviso != null && tab !== 'ajustes' && <Aviso dias={aviso} />}
+        {codigo && tab === 'calcular' && <InvitarAvisos codigo={codigo} irAjustes={() => setTab('ajustes')} />}
         {tab === 'calcular' && <Calculadora datos={datos} setDatos={setDatos} b={borrador} setB={setBorrador} irARegistro={() => setTab('registro')} />}
         {tab === 'registro' && <Registro datos={datos} setDatos={setDatos} editar={(j) => { setBorrador({ id: j.id, fecha: j.fecha, titulo: j.titulo, personas: j.personas, separarAlcohol: j.separarAlcohol }); setTab('calcular'); }} />}
-        {tab === 'ajustes' && <Ajustes datos={datos} setDatos={setDatos} />}
+        {tab === 'ajustes' && <Ajustes datos={datos} setDatos={setDatos} codigo={codigo} nombreGrupo={nombreGrupo} crear={unirseOCrear} salir={salirDelGrupo} />}
       </main>
       <nav className="bottomnav" aria-label="Secciones">
         <div className="bottomnav-inner" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
@@ -73,6 +150,26 @@ function Aviso({ dias }: { dias: number }) {
         </div>
       </div>
       <a className="btn btn-wa" href={whatsapp(`🍻 Muchachos, ya pasaron ${dias} días desde la última juntada. ¿Organizamos otra?`)} target="_blank" rel="noreferrer"><Share2 /> Avisar al grupo por WhatsApp</a>
+    </div>
+  );
+}
+
+/** Si el celular todavía no recibe avisos del grupo, lo ofrece (se puede descartar). */
+function InvitarAvisos({ codigo, irAjustes }: { codigo: string; irAjustes: () => void }) {
+  const [estado, setEstado] = useState<EstadoAvisos | null>(null);
+  const [oculto, setOculto] = useState(() => { try { return localStorage.getItem('la-juntada:avisos-oculto') === '1'; } catch { return false; } });
+  useEffect(() => { estadoAvisos().then(setEstado).catch(() => setEstado('no-disponible')); }, []);
+  if (oculto || !estado || estado === 'activos' || estado === 'no-disponible' || estado === 'bloqueados') return null;
+  return (
+    <div className="card tight row" style={{ marginBottom: 12, gap: 8 }}>
+      <Bell color="var(--ember)" size={20} style={{ flexShrink: 0 }} />
+      <span className="small grow">{estado === 'iphone-instalar'
+        ? 'Para recibir los avisos en iPhone, agregá la app a la pantalla de inicio (Compartir → Agregar a inicio).'
+        : 'Activá los avisos para enterarte cuando hace mucho que no se juntan.'}</span>
+      {estado === 'apagados'
+        ? <button className="btn btn-sm btn-primary" onClick={() => activarAvisos(codigo).then(() => { setEstado('activos'); toast('¡Avisos activados!'); }).catch((e) => toast(`⚠️ ${(e as Error).message}`))}>Activar</button>
+        : <button className="btn btn-sm" onClick={irAjustes}>Ver</button>}
+      <button className="tag-x" aria-label="Ocultar" onClick={() => { setOculto(true); try { localStorage.setItem('la-juntada:avisos-oculto', '1'); } catch { /* nada */ } }}><X size={15} /></button>
     </div>
   );
 }
@@ -341,7 +438,9 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
 }
 
 // ---------------------------------------------------------------- ajustes
-function Ajustes({ datos, setDatos }: { datos: Datos; setDatos: (d: Datos) => void }) {
+function Ajustes({ datos, setDatos, codigo, nombreGrupo, crear, salir }: {
+  datos: Datos; setDatos: (d: Datos) => void; codigo: string | null; nombreGrupo: string; crear: (nombre: string) => Promise<string>; salir: () => void;
+}) {
   const [tema, setTema] = useState<ThemePref>(getThemePref());
   const [otro, setOtro] = useState(String(datos.avisoDias));
   const [borrarTodo, setBorrarTodo] = useState<string | null>(null);
@@ -369,8 +468,9 @@ function Ajustes({ datos, setDatos }: { datos: Datos; setDatos: (d: Datos) => vo
   return (
     <div className="stack-lg">
       <h1>Ajustes</h1>
+      <Grupo codigo={codigo} nombreGrupo={nombreGrupo} crear={crear} salir={salir} />
       <section className="card stack">
-        <h3><BellRing size={18} style={{ verticalAlign: -3 }} /> Avisarme si no nos juntamos en…</h3>
+        <h3><BellRing size={18} style={{ verticalAlign: -3 }} /> {codigo ? 'Avisar al grupo si no nos juntamos en…' : 'Avisarme si no nos juntamos en…'}</h3>
         <div className="segmented" role="radiogroup" aria-label="Días para el aviso">
           {presets.map((d) => (
             <button key={d} role="radio" aria-checked={datos.avisoDias === d} className={datos.avisoDias === d ? 'on' : ''}
@@ -387,7 +487,8 @@ function Ajustes({ datos, setDatos }: { datos: Datos; setDatos: (d: Datos) => vo
               if (n >= 1 && n <= 365) setDatos({ ...datos, avisoDias: n });
             }} />
         </div>
-        <p className="hint">El aviso aparece al abrir la app cuando pasan {datos.avisoDias} días desde la última juntada del registro.</p>
+        <p className="hint">{codigo ? `Es igual para todo el grupo. Cuando pasan ${datos.avisoDias} días desde la última juntada, a cada celular con los avisos activados le llega una notificación.`
+          : `El aviso aparece al abrir la app cuando pasan ${datos.avisoDias} días desde la última juntada del registro.`}</p>
       </section>
 
       <section className="card stack">
@@ -417,12 +518,12 @@ function Ajustes({ datos, setDatos }: { datos: Datos; setDatos: (d: Datos) => vo
 
       <section className="card stack">
         <h3>Tus datos</h3>
-        <p className="small muted">Todo queda guardado en este celular, sin cuentas ni servidores. Bajate un respaldo de vez en cuando o para pasarlo a otro teléfono.</p>
+        <p className="small muted">{codigo ? 'Las juntadas están guardadas en el grupo. Igual podés bajarte una copia.' : 'Todo queda guardado en este celular. Bajate un respaldo de vez en cuando o para pasarlo a otro teléfono.'}</p>
         <div className="grid-2">
           <button className="btn" onClick={exportar}><Download /> Bajar respaldo</button>
           <label className="btn" style={{ cursor: 'pointer' }}><Upload /> Cargar respaldo<input type="file" accept="application/json,.json" hidden onChange={(e) => importar(e.target.files?.[0])} /></label>
         </div>
-        <button className="btn btn-ghost" style={{ color: 'var(--red)' }} onClick={() => setBorrarTodo('¿Borrar todas las juntadas y amigos?')}><Trash2 /> Borrar todo</button>
+        {!codigo && <button className="btn btn-ghost" style={{ color: 'var(--red)' }} onClick={() => setBorrarTodo('¿Borrar todas las juntadas y amigos?')}><Trash2 /> Borrar todo</button>}
       </section>
 
       <section className="card stack">
@@ -433,5 +534,52 @@ function Ajustes({ datos, setDatos }: { datos: Datos; setDatos: (d: Datos) => vo
       </section>
       <Confirm text={borrarTodo} label="Borrar todo" onClose={() => setBorrarTodo(null)} onYes={() => { setDatos({ ...datos, juntadas: [], amigos: [] }); toast('Datos borrados'); }} />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- grupo compartido
+function Grupo({ codigo, nombreGrupo, crear, salir }: { codigo: string | null; nombreGrupo: string; crear: (nombre: string) => Promise<string>; salir: () => void }) {
+  const [nombre, setNombre] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const [avisos, setAvisos] = useState<EstadoAvisos | null>(null);
+  const [confirmarSalir, setConfirmarSalir] = useState<string | null>(null);
+  useEffect(() => { if (codigo) estadoAvisos().then(setAvisos).catch(() => setAvisos('no-disponible')); }, [codigo]);
+
+  if (!codigo) {
+    return (
+      <section className="card alert stack">
+        <h3><Users size={18} style={{ verticalAlign: -3 }} /> Compartir con los amigos</h3>
+        <p className="small muted">Creá el grupo y mandales el link: todos ven el mismo registro, cualquiera puede cargar y a cada uno le llega el aviso cuando hace mucho que no se juntan. Lo que ya tenés guardado se sube al grupo.</p>
+        <input className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del grupo (ej: Los del asado)" maxLength={60} />
+        <button className="btn btn-primary" disabled={ocupado} onClick={async () => {
+          setOcupado(true);
+          try { await crear(nombre.trim() || 'La Juntada'); toast('¡Grupo creado! Ahora mandá el link'); }
+          catch (e) { toast(`⚠️ ${(e as Error).message}`); }
+          finally { setOcupado(false); }
+        }}><Users /> {ocupado ? 'Creando…' : 'Crear grupo'}</button>
+      </section>
+    );
+  }
+  const link = linkInvitacion(codigo);
+  return (
+    <section className="card stack">
+      <h3><Users size={18} style={{ verticalAlign: -3 }} /> Grupo: {nombreGrupo || '…'}</h3>
+      <p className="small muted">Todos los que abran el link ven y cargan las mismas juntadas. Cualquiera con el link puede entrar: pasalo solo a los del grupo.</p>
+      <div className="grid-2">
+        <a className="btn btn-wa" href={whatsapp(`🔥 Sumate a "${nombreGrupo || 'La Juntada'}" para dividir los gastos de las juntadas: ${link}\nAbrilo y agregalo a la pantalla de inicio para recibir los avisos.`)} target="_blank" rel="noreferrer"><Share2 /> Invitar</a>
+        <button className="btn" onClick={() => navigator.clipboard?.writeText(link).then(() => toast('Link copiado'), () => toast(link))}><Copy /> Copiar link</button>
+      </div>
+      <div className="row-between">
+        <span className="small"><Bell size={15} style={{ verticalAlign: -2 }} /> Avisos en este celular</span>
+        {avisos === 'activos' && <button className="btn btn-sm" onClick={() => desactivarAvisos().then(() => { setAvisos('apagados'); toast('Avisos desactivados'); })}>Desactivar</button>}
+        {avisos === 'apagados' && <button className="btn btn-sm btn-primary" onClick={() => activarAvisos(codigo).then(() => { setAvisos('activos'); toast('¡Avisos activados!'); }).catch((e) => toast(`⚠️ ${(e as Error).message}`))}>Activar</button>}
+      </div>
+      {avisos === 'activos' && <p className="hint pos">✓ Este celular recibe los avisos del grupo.</p>}
+      {avisos === 'bloqueados' && <p className="hint">Bloqueaste las notificaciones de esta página: habilitalas desde los ajustes del navegador.</p>}
+      {avisos === 'iphone-instalar' && <p className="hint">En iPhone: abrí la app en Safari → Compartir → “Agregar a inicio”, y activá los avisos desde ahí (iOS 16.4 o más nuevo).</p>}
+      {avisos === 'no-disponible' && <p className="hint">Este navegador no admite notificaciones. Probá con Chrome.</p>}
+      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)', alignSelf: 'flex-start' }} onClick={() => setConfirmarSalir('¿Salir del grupo en este celular? Las juntadas quedan guardadas para los demás.')}><LogOut /> Salir del grupo</button>
+      <Confirm text={confirmarSalir} label="Salir" onClose={() => setConfirmarSalir(null)} onYes={() => { desactivarAvisos().catch(() => undefined); salir(); }} />
+    </section>
   );
 }
