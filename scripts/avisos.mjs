@@ -6,16 +6,25 @@ import webpush from 'web-push';
 
 const URL = process.env.SB_URL || 'https://srgsnprtetkzosmcqneb.supabase.co';
 const SECRET = process.env.SB_SECRET;
-const PUBLICA = process.env.VAPID_PUBLICA || 'BB-fz5PjOUU3tmUjq8LnhYVE8LIjopzN4vcUPPOcDbH5hjCHilLgjJ1vjZfUJoJvlLLG6gn7EnxEtRCp4g8oVp4';
 if (!SECRET) {
   console.log('Falta SB_SECRET (clave secreta de Supabase): no se envían avisos.');
   process.exit(0);
 }
 const sb = createClient(URL, SECRET, { auth: { persistSession: false } });
 
-const { data: cfg, error: eCfg } = await sb.from('config').select('valor').eq('clave', 'vapid_privada').maybeSingle();
-if (eCfg || !cfg) throw new Error(`No se encontró la clave de avisos en Supabase: ${eCfg?.message ?? 'falta vapid_privada en la tabla config'}`);
-webpush.setVapidDetails('mailto:juntadaasado@gmail.com', PUBLICA, cfg.valor);
+// Claves de los avisos: si todavía no existen, se generan acá y se guardan solo en Supabase.
+const { data: cfg, error: eCfg } = await sb.from('config').select('clave, valor').in('clave', ['vapid_publica', 'vapid_privada']);
+if (eCfg) throw new Error(`No se pudo leer la configuración de Supabase: ${eCfg.message}`);
+let publica = cfg.find((c) => c.clave === 'vapid_publica')?.valor;
+let privada = cfg.find((c) => c.clave === 'vapid_privada')?.valor;
+if (!publica || !privada) {
+  const k = webpush.generateVAPIDKeys();
+  const { error: eIns } = await sb.from('config').insert([{ clave: 'vapid_publica', valor: k.publicKey }, { clave: 'vapid_privada', valor: k.privateKey }]);
+  if (eIns) throw new Error(`No se pudieron guardar las claves de avisos: ${eIns.message}`);
+  ({ publicKey: publica, privateKey: privada } = k);
+  console.log('Claves de avisos creadas y guardadas en Supabase.');
+}
+webpush.setVapidDetails('mailto:juntadaasado@gmail.com', publica, privada);
 
 const { data: grupos, error } = await sb.rpc('tomar_avisos');
 if (error) throw new Error(error.message);

@@ -8,10 +8,6 @@ import { validar, type Datos, type Juntada } from './juntada';
 
 const URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || 'https://srgsnprtetkzosmcqneb.supabase.co';
 const KEY = (import.meta.env.VITE_SUPABASE_KEY as string | undefined) || 'sb_publishable_uaGoNU5Lry-3pSyGeE1G1Q_bQqjhI3M';
-/** Clave pública para los avisos (la privada vive solo en el servidor). */
-export const VAPID_PUBLICA =
-  (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) ||
-  'BB-fz5PjOUU3tmUjq8LnhYVE8LIjopzN4vcUPPOcDbH5hjCHilLgjJ1vjZfUJoJvlLLG6gn7EnxEtRCp4g8oVp4';
 
 const GRUPO_KEY = 'la-juntada:grupo';
 
@@ -133,8 +129,12 @@ function claveBytes(base64: string) {
 export async function activarAvisos(codigo: string) {
   const permiso = await Notification.requestPermission();
   if (permiso !== 'granted') throw new Error('No diste permiso para las notificaciones.');
+  // La clave pública de los avisos la tiene Supabase (la privada nunca sale de ahí).
+  const { data: publica, error: eClave } = await sb().rpc('clave_publica_avisos');
+  error(eClave);
+  if (!publica) throw new Error('Los avisos todavía no están listos en el grupo. Probá más tarde.');
   const reg = await navigator.serviceWorker.ready;
-  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: claveBytes(VAPID_PUBLICA) }));
+  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: claveBytes(publica as string) }));
   const j = sub.toJSON();
   const { error: e } = await sb().rpc('suscribir_avisos', { p_codigo: codigo, p_endpoint: j.endpoint, p_p256dh: j.keys?.p256dh, p_auth: j.keys?.auth });
   error(e);

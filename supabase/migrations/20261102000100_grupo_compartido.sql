@@ -47,7 +47,8 @@ create table if not exists public.avisos_enviados (
   primary key (grupo_id, clave)
 );
 
--- Configuración privada (clave para firmar los avisos). Solo la lee el servidor.
+-- Claves de los avisos. La privada la genera el envío diario la primera vez y
+-- nunca sale de Supabase; la pública la puede pedir la app.
 create table if not exists public.config (
   clave  text primary key,
   valor  text not null
@@ -161,6 +162,11 @@ begin
 end;
 $$;
 
+create or replace function public.clave_publica_avisos()
+returns text language sql stable security definer set search_path = '' as $$
+  select valor from public.config where clave = 'vapid_publica';
+$$;
+
 create or replace function public.cancelar_avisos(p_endpoint text)
 returns void language sql security definer set search_path = '' as $$
   delete from public.suscripciones where endpoint = p_endpoint;
@@ -203,12 +209,12 @@ revoke execute on all functions in schema public from public, anon, authenticate
 grant execute on function
   public.crear_grupo(text), public.grupo_datos(text), public.guardar_juntada(text, jsonb),
   public.borrar_juntada(text, uuid), public.actualizar_grupo(text, text, integer, jsonb),
-  public.suscribir_avisos(text, text, text, text), public.cancelar_avisos(text)
+  public.suscribir_avisos(text, text, text, text), public.cancelar_avisos(text), public.clave_publica_avisos()
 to anon, authenticated;
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then
     grant execute on function public.tomar_avisos() to service_role;
-    grant select on public.config to service_role;
+    grant select, insert on public.config to service_role;
     grant delete on public.suscripciones to service_role;
   end if;
 end $$;

@@ -43,6 +43,9 @@ ok(!eav && mio && mio.dias >= 15 && mio.suscripciones.length === 1, `el servidor
 ok(!av.some((x) => x.nombre === 'Los del asado'), 'no repite el aviso en la segunda corrida');
 const { data: cfg, error: ecfg } = await srv.from('config').select('*');
 ok(!ecfg && Array.isArray(cfg), 'el servidor puede leer la configuración privada');
+const { data: pub } = await a.rpc('clave_publica_avisos');
+ok(typeof pub === 'string' && pub.length > 80, 'la app obtiene la clave pública de avisos');
+await falla(a.from('config').select('valor'), 'la app no puede leer la clave privada');
 await a.rpc('cancelar_avisos', { p_endpoint: 'https://push.example/abc' });
 
 // tiempo real
