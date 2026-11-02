@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight, BellRing, Calculator, Check, ChevronDown, Download, History, Pencil, Plus, Save, Settings, Share2, Trash2, Upload, UserPlus, X, RotateCcw
+  ArrowRight, BellRing, Calculator, ChevronDown, Download, History, Pencil, Plus, Save, Settings, Share2, Trash2, Upload, UserPlus, X, RotateCcw
 } from 'lucide-react';
 import {
   alcoholDe, calcular, cargar, pct, tomaAlcohol, diasSinJuntarse, fechaLocal, guardar, sumarAmigos, tocaJuntarse, validar, type Datos, type Juntada, type Persona
@@ -223,11 +223,10 @@ function textoCuentas(r: ReturnType<typeof calcular>, nombre: (id: string) => st
     `🔥 ${titulo.trim() || 'Juntada'} · ${fechaLarga(fecha)}`,
     r.porCabeza != null
       ? `Total: ${pesos(r.total)} · ${r.participantes} personas · ${pesos(r.porCabeza)} c/u`
-      : `Total: ${pesos(r.total)}${r.alcohol ? ` (alcohol ${pesos(r.alcohol)})` : ''} · ${r.participantes} personas`,
+      : `Total: ${pesos(r.total)}${r.alcohol ? ` (bebida ${pesos(r.alcohol)})` : ''} · ${r.participantes} personas`,
     `Pusieron: ${pusieron}`,
     ...(noToman.length ? [`No toman (no pagan bebida): ${noToman.join(', ')}`] : []),
     ...(parciales.length ? [`Estuvieron un rato: ${parciales.join(', ')}`] : []),
-    ...(r.porCabeza == null ? [`A cada uno le toca: ${part.map((p) => `${nombre(p.id)} ${pesos(r.parte[p.id])}`).join(', ')}`] : []),
     r.transferencias.length ? 'Cuentas:' : '¡Todos a mano! 🎉',
     ...r.transferencias.map((t) => `• ${nombre(t.from)} le pasa ${pesos(t.amountCents)} a ${nombre(t.to)}`)
   ].join('\n');
@@ -272,7 +271,6 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
   const [borrar, setBorrar] = useState<Juntada | null>(null);
   const dias = diasSinJuntarse(datos.juntadas);
   const total = datos.juntadas.reduce((a, j) => a + calcular(j.personas, j.separarAlcohol).total, 0);
-  const pendientes = datos.juntadas.filter((j) => !j.saldada && calcular(j.personas, j.separarAlcohol).transferencias.length).length;
 
   if (!datos.juntadas.length) {
     return (
@@ -289,15 +287,13 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
       <div className="grid-3">
         <div className="stat"><div className="stat-label">Juntadas</div><div className="stat-value">{datos.juntadas.length}</div></div>
         <div className="stat"><div className="stat-label">Última</div><div className="stat-value">{dias === 0 ? 'Hoy' : `${dias} d`}</div></div>
-        <div className="stat"><div className="stat-label">Sin saldar</div><div className="stat-value">{pendientes}</div></div>
+        <div className="stat"><div className="stat-label">Gastado</div><div className="stat-value" style={{ fontSize: '.95rem' }}>{pesos(total)}</div></div>
       </div>
-      <p className="faint small center">Total gastado en todas: {pesos(total)}</p>
       <div className="stack">
         {datos.juntadas.map((j) => {
           const r = calcular(j.personas, j.separarAlcohol);
           const nombre = (id: string) => j.personas.find((p) => p.id === id)?.nombre ?? '';
           const open = abierta === j.id;
-          const set = (patch: Partial<Juntada>) => setDatos({ ...datos, juntadas: datos.juntadas.map((x) => (x.id === j.id ? { ...x, ...patch } : x)) });
           return (
             <div key={j.id} className="card stack" style={{ gap: 10 }}>
               <button className="row-between" style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', width: '100%' }}
@@ -307,7 +303,6 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
                   <div className="faint small">{fechaLarga(j.fecha)} · {j.personas.length} personas · {pesos(r.total)}</div>
                 </div>
                 <span className="row" style={{ gap: 6 }}>
-                  {r.transferencias.length > 0 && <span className={`badge ${j.saldada ? 'b-settled' : 'b-pending'}`}>{j.saldada ? 'Saldada' : 'Pendiente'}</span>}
                   <ChevronDown size={18} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .2s' }} />
                 </span>
               </button>
@@ -329,11 +324,6 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
                     </div>
                   ) : <p className="small pos">Todos a mano.</p>}
                   <div className="row wrap" style={{ gap: 8 }}>
-                    {r.transferencias.length > 0 && (
-                      <button className={`btn btn-sm ${j.saldada ? '' : 'btn-success'}`} onClick={() => { set({ saldada: !j.saldada }); toast(j.saldada ? 'Marcada como pendiente' : '¡Cuentas saldadas!'); }}>
-                        <Check /> {j.saldada ? 'Desmarcar saldada' : 'Ya pagaron todos'}
-                      </button>
-                    )}
                     <a className="btn btn-sm btn-wa" href={whatsapp(textoCuentas(r, nombre, j.titulo, j.fecha, j.personas))} target="_blank" rel="noreferrer"><Share2 /> Compartir</a>
                     <button className="btn btn-sm" onClick={() => editar(j)}><Pencil /> Editar</button>
                     <button className="btn btn-sm btn-ghost" style={{ color: 'var(--red)' }} onClick={() => setBorrar(j)}><Trash2 /> Borrar</button>

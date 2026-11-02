@@ -60,12 +60,7 @@ await step('Guardar en el registro y persistir al recargar', async () => {
   await p.reload();
   await p.getByRole('button', { name: 'Registro' }).click();
   await see(p, '$ 100.000');
-  await see(p, 'Pendiente');
   await p.screenshot({ path: `${SHOTS}/registro.png`, fullPage: true });
-});
-await step('Marcar como saldada', async () => {
-  await p.getByRole('button', { name: 'Ya pagaron todos' }).click();
-  await see(p, 'Saldada');
 });
 await step('Los amigos quedan para cargarlos rápido', async () => {
   await p.getByRole('button', { name: 'Calcular' }).click();
@@ -119,7 +114,7 @@ await step('El que no toma no paga el alcohol y el que estuvo un rato paga menos
   if (!(await tag('Nico')).includes('Debe $ 12.000')) throw new Error('Nico 50%: ' + (await tag('Nico')));
   const href = await p.getByRole('link', { name: /Mandar cuentas por WhatsApp/ }).getAttribute('href');
   const t = decodeURIComponent(href.split('text=')[1]);
-  if (!t.includes('No toman (no pagan bebida): Nico') || !t.includes('Nico (50%)')) throw new Error(t);
+  if (!t.includes('No toman (no pagan bebida): Nico') || !t.includes('Nico (50%)') || t.includes('A cada uno le toca')) throw new Error(t);
   await p.screenshot({ path: `${SHOTS}/alcohol.png`, fullPage: true });
 });
 await step('Funciona sin internet (instalable)', async () => {
