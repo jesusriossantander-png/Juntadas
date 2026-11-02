@@ -31,6 +31,8 @@ export interface Juntada {
   personas: Persona[];
   /** Si el alcohol lo pagan solo los que toman */
   separarAlcohol?: boolean;
+  /** En un grupo: si este celular puede editarla (la cargó él o es administrador) */
+  editable?: boolean;
   saldada: boolean;
   creada: string;
 }
@@ -137,6 +139,7 @@ export function validar(x: unknown): Datos {
           fecha: j.fecha,
           titulo: String(j.titulo ?? '').slice(0, 80),
           separarAlcohol: !!j.separarAlcohol,
+          ...(typeof j.editable === 'boolean' ? { editable: j.editable } : {}),
           saldada: !!j.saldada,
           creada: String(j.creada ?? new Date().toISOString()),
           personas: j.personas

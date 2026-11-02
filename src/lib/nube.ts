@@ -9,34 +9,86 @@ import { validar, type Datos, type Juntada } from './juntada';
 const URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || 'https://srgsnprtetkzosmcqneb.supabase.co';
 const KEY = (import.meta.env.VITE_SUPABASE_KEY as string | undefined) || 'sb_publishable_uaGoNU5Lry-3pSyGeE1G1Q_bQqjhI3M';
 
-const GRUPO_KEY = 'la-juntada:grupo';
+const ACTIVO_KEY = 'la-juntada:grupo';
+const LISTA_KEY = 'la-juntada:grupos';
+const DISPOSITIVO_KEY = 'la-juntada:dispositivo';
 
 let cliente: SupabaseClient | null = null;
 const sb = () => (cliente ??= createClient(URL, KEY, { auth: { persistSession: false, autoRefreshToken: false } }));
 
-export const codigoGuardado = () => {
-  try {
-    return localStorage.getItem(GRUPO_KEY);
-  } catch {
-    return null;
-  }
-};
-export const guardarCodigo = (c: string | null) => {
-  try {
-    if (c) localStorage.setItem(GRUPO_KEY, c);
-    else localStorage.removeItem(GRUPO_KEY);
-  } catch {
-    /* nada */
-  }
-};
-export const linkInvitacion = (codigo: string) => `${location.origin}${location.pathname}?g=${codigo}`;
+const leer = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+const escribir = (k: string, v: string | null) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* nada */ } };
 
-/** Lee el código de un link de invitación (?g=...) y lo quita de la barra de direcciones. */
-export function codigoDelLink(): string | null {
-  const g = new URLSearchParams(location.search).get('g');
+/** Identificador propio de este celular (para saber qué juntadas cargó). */
+export function dispositivo(): string {
+  let d = leer(DISPOSITIVO_KEY);
+  if (!d) { d = crypto.randomUUID(); escribir(DISPOSITIVO_KEY, d); }
+  return d;
+}
+
+// ------------------------------------------------------------- mis grupos (en este celular)
+export interface MiGrupo {
+  codigo: string;
+  nombre: string;
+  /** Clave de administrador, solo si este celular lo es */
+  admin?: string;
+  /** Si este celular recibe los avisos de este grupo */
+  avisos?: boolean;
+}
+
+export function misGrupos(): MiGrupo[] {
+  try {
+    const l = JSON.parse(leer(LISTA_KEY) || '[]') as MiGrupo[];
+    const activo = leer(ACTIVO_KEY);
+    // Compatibilidad: antes se guardaba un solo grupo.
+    if (activo && !l.some((g) => g.codigo === activo)) l.push({ codigo: activo, nombre: '' });
+    return l.filter((g) => /^[a-z0-9]{12}$/.test(g.codigo));
+  } catch {
+    return [];
+  }
+}
+export function guardarMisGrupos(l: MiGrupo[]) {
+  escribir(LISTA_KEY, JSON.stringify(l));
+}
+export function recordarGrupo(g: MiGrupo) {
+  const l = misGrupos();
+  const i = l.findIndex((x) => x.codigo === g.codigo);
+  if (i >= 0) l[i] = { ...l[i], ...Object.fromEntries(Object.entries(g).filter(([, v]) => v !== undefined && v !== '')) } as MiGrupo;
+  else l.push(g);
+  guardarMisGrupos(l);
+  return l;
+}
+export function olvidarGrupo(codigo: string) {
+  const l = misGrupos().filter((g) => g.codigo !== codigo);
+  guardarMisGrupos(l);
+  if (leer(ACTIVO_KEY) === codigo) escribir(ACTIVO_KEY, null);
+  return l;
+}
+export const codigoGuardado = () => leer(ACTIVO_KEY);
+export const guardarCodigo = (c: string | null) => escribir(ACTIVO_KEY, c);
+const adminDe = (codigo: string) => misGrupos().find((g) => g.codigo === codigo)?.admin ?? null;
+
+const base = () => `${location.origin}${location.pathname}`;
+export const linkInvitacion = (codigo: string) => `${base()}?g=${codigo}`;
+/** Link para ser administrador en otro celular. No compartirlo con el grupo. */
+export const linkAdmin = (codigo: string, admin: string) => `${base()}?g=${codigo}&a=${admin}`;
+
+/** Lee un link de invitación (?g=...&a=...) y lo quita de la barra de direcciones. */
+export function codigoDelLink(): { codigo: string; admin?: string } | null {
+  const q = new URLSearchParams(location.search);
+  const g = q.get('g');
   if (!g || !/^[a-z0-9]{12}$/i.test(g)) return null;
+  const a = q.get('a');
   history.replaceState(null, '', location.pathname + location.hash);
-  return g.toLowerCase();
+  return { codigo: g.toLowerCase(), admin: a && /^[a-z0-9]{24}$/.test(a) ? a : undefined };
+}
+/** Acepta un link completo o el código suelto. */
+export function codigoDeTexto(t: string): { codigo: string; admin?: string } | null {
+  const s = t.trim();
+  const g = s.match(/[?&]g=([a-z0-9]{12})/i)?.[1] ?? (/^[a-z0-9]{12}$/i.test(s) ? s : null);
+  if (!g) return null;
+  const a = s.match(/[?&]a=([a-z0-9]{24})/)?.[1];
+  return { codigo: g.toLowerCase(), admin: a };
 }
 
 function error(e: { message: string } | null) {
@@ -47,41 +99,58 @@ function error(e: { message: string } | null) {
 
 export interface DatosGrupo extends Datos {
   nombreGrupo: string;
+  esAdmin: boolean;
+  tieneAdmin: boolean;
 }
 
-export async function crearGrupo(nombre: string): Promise<string> {
+export async function crearGrupo(nombre: string): Promise<MiGrupo> {
   const { data, error: e } = await sb().rpc('crear_grupo', { p_nombre: nombre });
   error(e);
+  const d = data as { codigo: string; admin: string };
+  return { codigo: d.codigo, admin: d.admin, nombre: nombre.trim() || 'La Juntada' };
+}
+
+export async function reclamarAdmin(codigo: string): Promise<string> {
+  const { data, error: e } = await sb().rpc('reclamar_admin', { p_codigo: codigo });
+  error(e);
+  recordarGrupo({ codigo, nombre: '', admin: data as string });
   return data as string;
 }
 
 export async function traerGrupo(codigo: string): Promise<DatosGrupo> {
-  const { data, error: e } = await sb().rpc('grupo_datos', { p_codigo: codigo });
+  const { data, error: e } = await sb().rpc('grupo_datos', { p_codigo: codigo, p_dispositivo: dispositivo(), p_admin: adminDe(codigo) });
   error(e);
-  const d = data as { nombre: string; avisoDias: number; amigos: string[]; juntadas: Juntada[] };
-  return { ...validar({ version: 1, juntadas: d.juntadas, amigos: d.amigos, avisoDias: d.avisoDias }), nombreGrupo: d.nombre };
+  const d = data as { nombre: string; avisoDias: number; amigos: string[]; juntadas: Juntada[]; esAdmin: boolean; tieneAdmin: boolean };
+  return {
+    ...validar({ version: 1, juntadas: d.juntadas, amigos: d.amigos, avisoDias: d.avisoDias }),
+    nombreGrupo: d.nombre, esAdmin: !!d.esAdmin, tieneAdmin: !!d.tieneAdmin
+  };
 }
 
 export async function guardarJuntadaNube(codigo: string, j: Juntada) {
-  const { error: e } = await sb().rpc('guardar_juntada', { p_codigo: codigo, p: j });
+  const { editable: _e, ...datos } = j;
+  void _e;
+  const { error: e } = await sb().rpc('guardar_juntada', { p_codigo: codigo, p: datos, p_dispositivo: dispositivo(), p_admin: adminDe(codigo) });
   error(e);
 }
 export async function borrarJuntadaNube(codigo: string, id: string) {
-  const { error: e } = await sb().rpc('borrar_juntada', { p_codigo: codigo, p_id: id });
+  const { error: e } = await sb().rpc('borrar_juntada', { p_codigo: codigo, p_id: id, p_admin: adminDe(codigo) });
   error(e);
 }
 export async function actualizarGrupo(codigo: string, cambios: { nombre?: string; avisoDias?: number; amigos?: string[] }) {
   const { error: e } = await sb().rpc('actualizar_grupo', {
-    p_codigo: codigo, p_nombre: cambios.nombre ?? null, p_aviso_dias: cambios.avisoDias ?? null, p_amigos: cambios.amigos ?? null
+    p_codigo: codigo, p_nombre: cambios.nombre ?? null, p_aviso_dias: cambios.avisoDias ?? null, p_amigos: cambios.amigos ?? null,
+    p_admin: adminDe(codigo)
   });
   error(e);
 }
 
 /** Sube a la nube todo lo que cambió entre dos versiones de los datos. */
 export async function sincronizar(codigo: string, antes: Datos, despues: Datos) {
-  const previas = new Map(antes.juntadas.map((j) => [j.id, JSON.stringify(j)]));
+  const sinMarca = (j: Juntada) => { const { editable: _e, ...r } = j; void _e; return JSON.stringify(r); };
+  const previas = new Map(antes.juntadas.map((j) => [j.id, sinMarca(j)]));
   const actuales = new Set(despues.juntadas.map((j) => j.id));
-  for (const j of despues.juntadas) if (previas.get(j.id) !== JSON.stringify(j)) await guardarJuntadaNube(codigo, j);
+  for (const j of despues.juntadas) if (previas.get(j.id) !== sinMarca(j)) await guardarJuntadaNube(codigo, j);
   for (const j of antes.juntadas) if (!actuales.has(j.id)) await borrarJuntadaNube(codigo, j.id);
   const cambios: { avisoDias?: number; amigos?: string[] } = {};
   if (antes.avisoDias !== despues.avisoDias) cambios.avisoDias = despues.avisoDias;
@@ -111,13 +180,14 @@ export type EstadoAvisos = 'activos' | 'apagados' | 'bloqueados' | 'no-disponibl
 const esIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const instalada = () => matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
 
-export async function estadoAvisos(): Promise<EstadoAvisos> {
+export async function estadoAvisos(codigo: string): Promise<EstadoAvisos> {
   if (esIOS() && !instalada()) return 'iphone-instalar';
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return 'no-disponible';
   if (Notification.permission === 'denied') return 'bloqueados';
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
-  return sub && Notification.permission === 'granted' ? 'activos' : 'apagados';
+  const marcado = misGrupos().find((g) => g.codigo === codigo)?.avisos;
+  return sub && marcado && Notification.permission === 'granted' ? 'activos' : 'apagados';
 }
 
 function claveBytes(base64: string) {
@@ -138,12 +208,16 @@ export async function activarAvisos(codigo: string) {
   const j = sub.toJSON();
   const { error: e } = await sb().rpc('suscribir_avisos', { p_codigo: codigo, p_endpoint: j.endpoint, p_p256dh: j.keys?.p256dh, p_auth: j.keys?.auth });
   error(e);
+  recordarGrupo({ codigo, nombre: '', avisos: true });
 }
 
-export async function desactivarAvisos() {
-  const reg = await navigator.serviceWorker.getRegistration();
+/** Deja de recibir los avisos de un grupo; si ya no queda ninguno, apaga las notificaciones del celular. */
+export async function desactivarAvisos(codigo: string) {
+  const l = misGrupos().map((g) => (g.codigo === codigo ? { ...g, avisos: false } : g));
+  guardarMisGrupos(l);
+  const reg = await navigator.serviceWorker?.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
   if (!sub) return;
-  await sb().rpc('cancelar_avisos', { p_endpoint: sub.endpoint });
-  await sub.unsubscribe();
+  await sb().rpc('cancelar_avisos', { p_endpoint: sub.endpoint, p_codigo: codigo });
+  if (!l.some((g) => g.avisos)) await sub.unsubscribe();
 }
