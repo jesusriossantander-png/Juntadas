@@ -121,7 +121,7 @@ export default function App() {
         {aviso != null && tab !== 'ajustes' && <Aviso dias={aviso} />}
         {codigo && tab === 'calcular' && <InvitarAvisos codigo={codigo} irAjustes={() => setTab('ajustes')} />}
         {tab === 'calcular' && <Calculadora datos={datos} setDatos={setDatos} b={borrador} setB={setBorrador} irARegistro={() => setTab('registro')} />}
-        {tab === 'registro' && <Registro datos={datos} setDatos={setDatos} editar={(j) => { setBorrador({ id: j.id, fecha: j.fecha, titulo: j.titulo, personas: j.personas, separarAlcohol: j.separarAlcohol }); setTab('calcular'); }} />}
+        {tab === 'registro' && <Registro datos={datos} editar={(j) => { setBorrador({ id: j.id, fecha: j.fecha, titulo: j.titulo, personas: j.personas, separarAlcohol: j.separarAlcohol }); setTab('calcular'); }} />}
         {tab === 'ajustes' && <Ajustes datos={datos} setDatos={setDatos} codigo={codigo} nombreGrupo={nombreGrupo} crear={unirseOCrear} salir={salirDelGrupo} />}
       </main>
       <nav className="bottomnav" aria-label="Secciones">
@@ -363,9 +363,8 @@ function Resultado({ r, nombre, titulo, fecha, personas }: { r: ReturnType<typeo
 }
 
 // ---------------------------------------------------------------- registro
-function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Datos) => void; editar: (j: Juntada) => void }) {
+function Registro({ datos, editar }: { datos: Datos; editar: (j: Juntada) => void }) {
   const [abierta, setAbierta] = useState<string | null>(datos.juntadas[0]?.id ?? null);
-  const [borrar, setBorrar] = useState<Juntada | null>(null);
   const dias = diasSinJuntarse(datos.juntadas);
   const total = datos.juntadas.reduce((a, j) => a + calcular(j.personas, j.separarAlcohol).total, 0);
 
@@ -421,9 +420,7 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
                     </div>
                   ) : <p className="small pos">Todos a mano.</p>}
                   <div className="row wrap" style={{ gap: 8 }}>
-                    <a className="btn btn-sm btn-wa" href={whatsapp(textoCuentas(r, nombre, j.titulo, j.fecha, j.personas))} target="_blank" rel="noreferrer"><Share2 /> Compartir</a>
                     <button className="btn btn-sm" onClick={() => editar(j)}><Pencil /> Editar</button>
-                    <button className="btn btn-sm btn-ghost" style={{ color: 'var(--red)' }} onClick={() => setBorrar(j)}><Trash2 /> Borrar</button>
                   </div>
                 </>
               )}
@@ -431,8 +428,6 @@ function Registro({ datos, setDatos, editar }: { datos: Datos; setDatos: (d: Dat
           );
         })}
       </div>
-      <Confirm text={borrar ? `¿Borrar “${borrar.titulo || 'Juntada'}” del ${fechaLarga(borrar.fecha)}?` : null} label="Borrar"
-        onClose={() => setBorrar(null)} onYes={() => { setDatos({ ...datos, juntadas: datos.juntadas.filter((x) => x.id !== borrar!.id) }); toast('Juntada borrada'); }} />
     </div>
   );
 }

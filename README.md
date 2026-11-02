@@ -11,7 +11,7 @@ Calculadora para dividir los gastos cuando se juntan con amigos, con registro de
 - **Tiempo que estuvo**: 100%, 75%, 50%, 25%, otro porcentaje o "No entra" (compró pero no participa); cada uno paga en proporción.
 - **Resultado**: abajo, mitad y mitad, el total gastado (con comida y bebida) y quién le paga a quién.
 - **Compartir**: un botón manda las cuentas al grupo por WhatsApp.
-- **Registro**: cada juntada guardada queda con fecha, lo que puso cada uno y las transferencias. Se puede editar o borrar.
+- **Registro**: cada juntada guardada queda con fecha, lo que puso cada uno y las transferencias. Se puede editar.
 - **Grupo compartido**: desde Ajustes se crea el grupo y se manda el link por WhatsApp. Todos ven el mismo registro, cualquiera puede cargar y los cambios aparecen en vivo en los demás celulares. Sin usuarios ni contraseñas: el link lleva un código secreto.
 - **Aviso**: si pasan más de X días desde la última juntada (7, 15, 30, 45, 60 o el número que elijas), aparece "🍻 ¡Hace N días que no se juntan!" al abrir la app y, en el grupo, **llega una notificación a cada celular** que activó los avisos (una vez por ciclo).
 - Los amigos que ya cargaste quedan guardados para agregarlos con un toque.

@@ -68,20 +68,6 @@ await step('Los días de aviso son los mismos para todos', async () => {
   const on = await b.getByRole('radio', { name: '15 días' }).getAttribute('aria-checked');
   if (on !== 'true') throw new Error('no se compartió');
 });
-await step('Borrar en un celular lo borra para todos', async () => {
-  await b.getByRole('button', { name: 'Registro' }).click();
-  await b.getByRole('button', { name: /\$ 12\.000/ }).first().click().catch(() => {});
-  const cards = b.locator('.card').filter({ hasText: '$ 12.000' });
-  await cards.first().getByRole('button', { name: 'Borrar', exact: true }).click().catch(async () => {
-    await cards.first().locator('button[aria-expanded]').click();
-    await cards.first().getByRole('button', { name: 'Borrar', exact: true }).click();
-  });
-  await b.getByRole('dialog').getByRole('button', { name: 'Borrar' }).click();
-  await a.getByRole('button', { name: 'Registro' }).click();
-  await a.waitForTimeout(2500);
-  if (await a.getByText('$ 12.000').filter({ visible: true }).count()) throw new Error('sigue apareciendo');
-  await a.screenshot({ path: `${SHOTS}/grupo-registro.png`, fullPage: true });
-});
 await step('Salir del grupo vuelve a lo del celular', async () => {
   await b.getByRole('button', { name: 'Ajustes' }).click();
   await b.getByRole('button', { name: 'Salir del grupo' }).click();

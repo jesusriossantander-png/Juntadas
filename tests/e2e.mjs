@@ -94,14 +94,14 @@ await step('Cambiar la frecuencia del aviso', async () => {
   await p.getByRole('button', { name: 'Calcular' }).click();
   if (await p.getByText('que no se juntan').count()) throw new Error('el aviso no respeta la frecuencia');
 });
-await step('Borrar una juntada', async () => {
+await step('Editar no muestra Compartir ni Borrar en el registro', async () => {
   await p.getByRole('button', { name: 'Registro' }).click();
-  await p.getByRole('button', { name: 'Borrar', exact: true }).click();
-  await p.getByRole('dialog').getByRole('button', { name: 'Borrar' }).click();
-  await see(p, 'Todavía no hay juntadas');
+  if (await p.getByRole('button', { name: 'Borrar', exact: true }).count()) throw new Error('sigue el botón Borrar');
+  if (await p.getByRole('link', { name: 'Compartir' }).count()) throw new Error('sigue el botón Compartir');
 });
 await step('El que no toma no paga el alcohol y el que estuvo un rato paga menos', async () => {
   await p.getByRole('button', { name: 'Calcular' }).click();
+  if (await p.getByLabel(/Nombre de la persona/).count()) { await p.getByRole('button', { name: 'Limpiar' }).click(); await p.getByRole('button', { name: 'Sí', exact: true }).click(); }
   for (const n of ['Jesús', 'Pablo', 'Nico']) await p.getByRole('button', { name: n, exact: false }).first().click();
   await p.getByLabel('Comida de Jesús').fill('60.000');
   await p.getByLabel('Bebida de Pablo').fill('20.000');
